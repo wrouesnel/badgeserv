@@ -1,0 +1,288 @@
+---
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: nmap scheduling API
+  license:
+    name: MIT
+  description: |
+    API for scheduling nmap scans of remote hosts, and reviewing results of previous scans.
+servers:
+- url: http://localhost:8080/api/v1
+components:
+  schemas:
+    PingResponse:
+      description: API availability response endpoint
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+        responded_at:
+          type: string
+          format: date-time
+        version:
+          type: string
+    ScanId:
+      description: Scan ID value
+      type: object
+      properties:
+        scan_id:
+          type: string
+          description: Unique identifier (base32, 128-bit encoded ID) of a scan request
+    NmapPortResult:
+      description: nmap port result
+      type: object
+      properties:
+        protocol:
+          type: string
+          enum:
+          - tcp
+          - udp
+        port:
+          type: integer
+          format: int32
+        service_name:
+          type: string
+        reason:
+          type: string
+    NmapResults:
+      description: nmap results
+      type: object
+      properties:
+        host_status:
+          enum:
+          - up
+          - down
+        date:
+          type: string
+          format: date-time
+        host:
+          type: string
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/NmapPortResult"
+    ClientError:
+      description: error object for client errors
+      type: object
+      properties:
+        description:
+          type: string
+        error:
+          type: string
+      required:
+      - description
+      - error
+paths:
+  /openapi.yaml:
+    get:
+      tags:
+      - help
+      description: return this openapi specification
+      responses:
+        "200":
+          description: OK
+          content:
+            text/vnd.yaml:
+              schema:
+                type: string
+  /ping:
+    get:
+      tags:
+      - status
+      description: service availability check endpoint
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+  /scan/{host}:
+    post:
+      tags:
+      - scan
+      description: |
+        Initiate a new nmap scan of an IP and return the ID number of the scan results. If a scan is already in
+        progress or queued, then the existing ID of that request will be returned.
+      parameters:
+      - in: path
+        name: host
+        description: Hostname or IP address of the server to scan
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - scan already in progress, original scan ID returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanId"
+        "201":
+          description: OK - scan queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanId"
+        "400":
+          description: Client Error - Invalid Hostname or IP address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientError"
+  /results/host/{host}:
+    get:
+      tags:
+      - results
+      description: |
+        Request the results of a scan ID.
+      parameters:
+      - in: path
+        name: host
+        description: Hostname or IP address of the server to scan
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - summary results for IP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NmapPortResult"
+        "400":
+          description: Client Error - Invalid Hostname or IP address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientError"
+        "404":
+          description: Not Found - no results for IP
+  /results/host/{host}/latest:
+    get:
+      tags:
+        - results
+      description: |
+        Request the results of the latest host scan ID.
+      parameters:
+        - in: path
+          name: host
+          description: Hostname or IP address of the server to scan
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK - latest scan results for host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NmapPortResult"
+        "202":
+          description: Accepted - Scan In Progress
+        "400":
+          description: Client Error - Invalid Scan ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientError"
+  /results/id/{scan_id}:
+    get:
+      tags:
+      - results
+      description: |
+        Request the results of a scan ID.
+      parameters:
+      - in: path
+        name: scan_id
+        description: Scan ID to display results for
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - scan results for ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NmapPortResult"
+        "202":
+          description: Accepted - Scan In Progress
+        "400":
+          description: Client Error - Invalid Scan ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientError"
+        "404":
+          description: Not Found - Scan ID not found
+  /results/diff/ports/{scanId1}/{scanId2}:
+    get:
+      tags:
+      - comparison
+      description: |
+        Request a difference summary of found ports between scanId 1 and scanId 2.
+        ScanID timestamps will determine order.
+      parameters:
+      - in: path
+        name: scanId1
+        description: scan ID of one side of the comparison
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: scanId2
+        description: scan ID of the other side of the comparison
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - port difference results
+          content:
+            application/json:
+              schema:
+                type: object
+        "202":
+          description: Accepted - Scan In Progress
+        "400":
+          description: Client Error - invalid host specification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientError"
+        "404":
+          description: Not Found - host not found
+  /results/diff/ports/host/{host}:
+    get:
+      tags:
+      - comparison
+      description: |
+        Request a difference summary of found ports between latest two scans for the given host.
+      parameters:
+      - in: path
+        name: host
+        description: Hostname or IP address of the server to scan
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK - port difference results
+          content:
+            application/json:
+              schema:
+                type: object
+        "202":
+          description: Accepted - Scan In Progress
+        "400":
+          description: Client Error - invalid host specification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientError"
+        "404":
+          description: Not Found - host not found
