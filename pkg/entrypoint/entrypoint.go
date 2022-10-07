@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/alecthomas/kong"
 	gap "github.com/muesli/go-app-paths"
+	"github.com/samber/lo"
 	"github.com/wrouesnel/badgeserv/pkg/kongutil"
 	"github.com/wrouesnel/badgeserv/pkg/server"
 	"github.com/wrouesnel/badgeserv/version"
@@ -48,26 +49,28 @@ func configDirListGet() ([]string, []string) {
 		deferredLogs = append(deferredLogs, err.Error())
 	}
 
-	configDirs := []string{}
-	for _, configDir := range baseConfigDirs {
-		configDirs = append(configDirs,
-			path.Join(configDir, configFileName("", "json")),
-			path.Join(configDir, configFileName("", "yml")),
-			path.Join(configDir, configFileName("", "yaml")),
-			path.Join(configDir, configFileName("", "toml")))
-	}
-	configDirs = append([]string{
-		configFileName(".", "json"),
-		configFileName(".", "yml"),
-		configFileName(".", "yaml"),
-		configFileName(".", "toml"),
-		path.Join(os.Getenv("HOME"), configFileName(".", "json")),
-		path.Join(os.Getenv("HOME"), configFileName(".", "yml")),
-		path.Join(os.Getenv("HOME"), configFileName(".", "yaml")),
-		path.Join(os.Getenv("HOME"), configFileName(".", "toml")),
-	}, configDirs...)
+	supportedFmts := []string{"json", "yml", "yaml", "toml"}
 
-	return configDirs, deferredLogs
+	normConfigFiles := []string{}
+	for _, configDir := range baseConfigDirs {
+		normConfigFiles = append(normConfigFiles, lo.Map(supportedFmts, func(ext string, _ int) string {
+			return path.Join(configDir, configFileName("", ext))
+		})...)
+	}
+
+	var curDirConfigFiles []string = lo.Map(supportedFmts, func(ext string, _ int) string {
+		return configFileName(".", ext)
+	})
+
+	var homeDirConfigFiles []string = lo.Map(curDirConfigFiles, func(configFileName string, _ int) string {
+		return path.Join(os.Getenv("HOME"), configFileName)
+	})
+
+	configFiles := curDirConfigFiles
+	configFiles = append(configFiles, homeDirConfigFiles...)
+	configFiles = append(configFiles, normConfigFiles...)
+
+	return configFiles, deferredLogs
 }
 
 func Entrypoint(stdOut io.Writer, stdErr io.Writer) int {

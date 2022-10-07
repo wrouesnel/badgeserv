@@ -48,7 +48,7 @@ func NewApi(apiConfig *ApiConfig) (ServerInterface, string) {
 // GetOpenapiYaml implements returning the openapi.yaml file
 func (a *apiImpl) GetOpenapiYaml(ctx echo.Context) error {
 	header := ctx.Response().Header()
-	header.Set("Content-Type", "text/plain")
+	header.Set("Content-Type", "application/yaml;text/plain")
 	header.Set("Content-Disposition", "inline; filename=\"openapi.yaml\"")
 
 	ctx.Response().WriteHeader(http.StatusOK)
