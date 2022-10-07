@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"github.com/brpaz/echozap"
-	"github.com/flowchartsman/swaggerui"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
@@ -11,9 +10,6 @@ import (
 	"github.com/wrouesnel/badgeserv/version"
 	"go.uber.org/zap"
 	"io"
-	"net/http"
-	"strings"
-	"time"
 )
 
 type ApiServerConfig struct {
@@ -32,7 +28,7 @@ func Api(serverConfig ApiServerConfig) error {
 	logger.Info("Starting API server")
 	// Create the API
 	apiConfig := &api.ApiConfig{}
-	apiInstance, prefix := api.NewApi(apiConfig)
+	apiInstance, apiPrefix := api.NewApi(apiConfig)
 
 	if apiInstance == nil {
 		err := ErrApiInitializationFailed
@@ -41,7 +37,7 @@ func Api(serverConfig ApiServerConfig) error {
 	}
 
 	// Start the API
-	if err := ApiServer(serverConfig, apiInstance, prefix); err != nil {
+	if err := Server(serverConfig, ApiConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {
 		logger.Error("Error from server", zap.Error(err))
 		return errors.Wrap(err, "Server exiting with error")
 	}
@@ -49,10 +45,33 @@ func Api(serverConfig ApiServerConfig) error {
 	return nil
 }
 
-// ApiServer implements the logic necessary to launch an API from a server config and a server.
+// ApiConfigure implements the logic necessary to launch an API from a server config and a server.
 // The primary difference to Api() is that the apInstance interface is explicitly passed.
-func ApiServer[T api.ServerInterface](serverConfig ApiServerConfig, apiInstance T, prefix string) error {
-	var logger = zap.L().With(zap.String("subsystem", "server"))
+func ApiConfigure[T api.ServerInterface](serverConfig ApiServerConfig, apiInstance T, apiPrefix string) func(e *echo.Echo) error {
+	return func(e *echo.Echo) error {
+		var logger = zap.L().With(zap.String("subsystem", "server"))
+
+		fullApiPrefix := fmt.Sprintf("%s/api/%s", serverConfig.Prefix, apiPrefix)
+		logger.Info("Initializing API with apiPrefix",
+			zap.String("configured_prefix", serverConfig.Prefix),
+			zap.String("api_prefix", apiPrefix),
+			zap.String("api_basepath", fullApiPrefix))
+
+		api.RegisterHandlersWithBaseURL(e, apiInstance, fullApiPrefix)
+		// Add the Swagger API as the frontend.
+		uiPrefix := fmt.Sprintf("%s/ui", fullApiPrefix)
+		uiHandler := EchoSwaggerUIHandler(uiPrefix, api.OpenApiSpec)
+		e.GET(fmt.Sprintf("%s", uiPrefix), uiHandler)
+		e.GET(fmt.Sprintf("%s/*", uiPrefix), uiHandler)
+		logger.Info("Swagger UI configured apiPrefix", zap.String("ui_path", uiPrefix))
+
+		return nil
+	}
+}
+
+// Server configures and starts an Echo server with standard capabilities, and configuration functions.
+func Server(serverConfig ApiServerConfig, ConfigFns ...func(e *echo.Echo) error) error {
+	logger := zap.L().With(zap.String("subsystem", "server"))
 
 	e := echo.New()
 	e.HideBanner = true
@@ -65,62 +84,17 @@ func ApiServer[T api.ServerInterface](serverConfig ApiServerConfig, apiInstance 
 	// Setup logging
 	e.Use(echozap.ZapLogger(zap.L()))
 
-	apiPrefix := fmt.Sprintf("%s/api/%s", serverConfig.Prefix, prefix)
-	logger.Info("Initializing API with prefix",
-		zap.String("configured_prefix", serverConfig.Prefix),
-		zap.String("api_prefix", prefix),
-		zap.String("api_basepath", apiPrefix))
-
-	api.RegisterHandlersWithBaseURL(e, apiInstance, apiPrefix)
-	// Add the Swagger API as the frontend.
-	uiPrefix := fmt.Sprintf("%s/ui", apiPrefix)
-	uiHandler := EchoSwaggerUIHandler(uiPrefix, api.OpenApiSpec)
-	e.GET(fmt.Sprintf("%s", uiPrefix), uiHandler)
-	e.GET(fmt.Sprintf("%s/*", uiPrefix), uiHandler)
-	logger.Info("Swagger UI configured prefix", zap.String("ui_path", uiPrefix))
-
 	// Add ready and liveness endpoints
 	e.GET("/-/ready", Ready)
 	e.GET("/-/live", Live)
 	e.GET("/-/started", Live)
 
+	for _, configFn := range ConfigFns {
+		if err := configFn(e); err != nil {
+			logger.Error("Failed calling configuration function", zap.Error(err))
+		}
+	}
+
 	err := e.Start(fmt.Sprintf("%s:%d", serverConfig.Host, serverConfig.Port))
 	return err
-}
-
-func EchoSwaggerUIHandler(uiPath string, swaggerUISpec []byte) echo.HandlerFunc {
-	uiPath = strings.TrimRight(uiPath, "/")
-	uiPathWithSlash := fmt.Sprintf("%s/", uiPath)
-	handler := http.StripPrefix(uiPath, swaggerui.Handler(swaggerUISpec))
-	return func(c echo.Context) error {
-		request := c.Request()
-		// The Swagger UI handler returns / redirect if it receives an empty
-		// string. We need to handle this case ourselves or it just redirects
-		// to the root of the application.
-		if request.URL.Path == uiPath {
-			return c.Redirect(http.StatusMovedPermanently, uiPathWithSlash)
-		}
-
-		handler.ServeHTTP(c.Response(), request)
-		return nil
-	}
-}
-
-// Live returns 200 OK if the application server is still functional and able
-// to handle requests.
-func Live(c echo.Context) error {
-	resp := &LivenessResponse{RespondedAt: time.Now()}
-	return c.JSON(http.StatusOK, resp)
-}
-
-// Ready returns 200 OK if the application is ready to serve new requests.
-func Ready(c echo.Context) error {
-	resp := &ReadinessResponse{RespondedAt: time.Now()}
-	return c.JSON(http.StatusOK, resp)
-}
-
-// Started returns 200 OK once the application is started.
-func Started(c echo.Context) error {
-	resp := &StartedResponse{RespondedAt: time.Now()}
-	return c.JSON(http.StatusOK, resp)
 }
