@@ -33,6 +33,9 @@ import (
 
 	"github.com/integralist/go-findroot/find"
 	"github.com/pkg/errors"
+
+	"github.com/rogpeppe/go-internal/modfile"
+	"github.com/samber/lo"
 )
 
 var (
@@ -161,6 +164,13 @@ var goDirs []string
 var goPkgs []string
 var goCmds []string
 
+// Function to calculate the version symbol
+var versionSymbol = func() string {
+	gomodBytes := lo.Must(ioutil.ReadFile("go.mod"))
+	parsedGoMod := lo.Must(modfile.ParseLax("go.mod", gomodBytes, nil))
+	return fmt.Sprintf("%s/version.Version", parsedGoMod.Module.Mod.Path)
+}
+
 var version = func() string {
 	if v := os.Getenv("VERSION"); v != "" {
 		return v
@@ -168,7 +178,13 @@ var version = func() string {
 	out, _ := sh.Output("git", "describe", "--dirty")
 
 	if out == "" {
-		return "v0.0.0"
+		// Try and at least describe the git commit.
+		out, _ = sh.Output("git", "describe", "--dirty", "--always")
+		if out != "" {
+			return fmt.Sprintf("v0.0.0-0-%s", out)
+		} else {
+			return "v0.0.0"
+		}
 	}
 
 	return out
@@ -690,7 +706,7 @@ func makeBuilder(cmd string, platform Platform) func() error {
 
 		fmt.Println("Building", platform.PlatformBin(cmd))
 		return sh.RunWith(map[string]string{"CGO_ENABLED": "0", "GOOS": platform.OS, "GOARCH": platform.Arch},
-			"go", "build", "-a", "-ldflags", fmt.Sprintf("-buildid='' -extldflags '-static' -X main.Version=%s", version),
+			"go", "build", "-a", "-ldflags", fmt.Sprintf("-buildid='' -extldflags '-static' -X %s=%s", versionSymbol(), version),
 			"-trimpath", "-o", platform.PlatformBin(cmd), cmdSrc)
 	}
 	return f
@@ -865,6 +881,10 @@ func Debug() error {
 	fmt.Println("Command Paths:", goCmds)
 	fmt.Println("Output Dirs:", outputDirs)
 	fmt.Println("PATH:", os.Getenv("PATH"))
+
+	fmt.Println("Version:", version)
+	fmt.Println("Version short:", versionShort)
+	fmt.Println("Version symbol:", versionSymbol())
 	return nil
 }
 
