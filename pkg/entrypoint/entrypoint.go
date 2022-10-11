@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 	gap "github.com/muesli/go-app-paths"
 	"github.com/samber/lo"
+	"github.com/wrouesnel/badgeserv/pkg/badges"
 	"github.com/wrouesnel/badgeserv/pkg/kongutil"
 	"github.com/wrouesnel/badgeserv/pkg/server"
 	"github.com/wrouesnel/badgeserv/version"
@@ -21,6 +22,8 @@ var CLI struct {
 		Level  string `help:"logging level" default:"info"`
 		Format string `help:"logging format (${enum})" enum:"console,json" default:"json"`
 	} `embed:"" prefix:"logging."`
+
+	Badges badges.BadgeConfig `embed:"" prefix:"badges"`
 
 	Debug struct {
 		Assets struct {

@@ -22,7 +22,7 @@ func dispatchCommands(ctx *kong.Context, appCtx context.Context, stdOut io.Write
 
 	switch ctx.Command() {
 	case "api":
-		err = server.Api(CLI.Api)
+		err = server.Api(CLI.Api, CLI.Badges)
 
 	case "debug assets list":
 		err = fs.WalkDir(assets.Assets, ".", func(path string, d fs.DirEntry, err error) error {

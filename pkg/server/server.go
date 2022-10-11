@@ -3,19 +3,32 @@ package server
 import (
 	"fmt"
 	"github.com/brpaz/echozap"
+	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"github.com/wrouesnel/badgeserv/api/v1"
+	"github.com/wrouesnel/badgeserv/pkg/badges"
 	"github.com/wrouesnel/badgeserv/version"
 	"go.uber.org/zap"
+	"go.withmatt.com/httpheaders"
 	"io"
+	"time"
 )
 
+// ApiServerConfig configures local hosting parameters of the API server
 type ApiServerConfig struct {
 	Prefix string `help:"Prefix the API is bing served under, if any"`
 	Host   string `help:"Host the API should be served on" default:""`
 	Port   int    `help:"Port to serve on" default:"8080"`
+
+	HttpClient ApiHttpClientConfig `embed:"" prefix:"http"`
+}
+
+// ApiHttpClientConfig configures the outbound HTTP request globals
+type ApiHttpClientConfig struct {
+	Timeout   time.Duration `help:"Default HTTP request timeout" default:"3s"`
+	UserAgent string        `help:"User Agent string to send with requests" default:""`
 }
 
 var (
@@ -23,11 +36,23 @@ var (
 )
 
 // Api launches an ApiV1 instance server and manages it's lifecycle.
-func Api(serverConfig ApiServerConfig) error {
+func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig) error {
 	logger := zap.L()
-	logger.Info("Starting API server")
-	// Create the API
-	apiConfig := &api.ApiConfig{}
+
+	logger.Debug("Configuring API REST client")
+	httpClient := resty.New()
+	if serverConfig.HttpClient.UserAgent == "" {
+		httpClient.SetHeader(httpheaders.UserAgent, fmt.Sprintf("%s/%s", version.Name, version.Version))
+	} else {
+		httpClient.SetHeader(httpheaders.UserAgent, serverConfig.HttpClient.UserAgent)
+	}
+	httpClient.SetTimeout(serverConfig.HttpClient.Timeout)
+
+	logger.Debug("Creating API config")
+	apiConfig := &api.ApiConfig{
+		badges.NewBadgeService(&badgeConfig),
+		httpClient,
+	}
 	apiInstance, apiPrefix := api.NewApi(apiConfig)
 
 	if apiInstance == nil {
@@ -36,7 +61,7 @@ func Api(serverConfig ApiServerConfig) error {
 		return ErrApiInitializationFailed
 	}
 
-	// Start the API
+	logger.Info("Starting API server")
 	if err := Server(serverConfig, ApiConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {
 		logger.Error("Error from server", zap.Error(err))
 		return errors.Wrap(err, "Server exiting with error")
@@ -87,7 +112,7 @@ func Server(serverConfig ApiServerConfig, ConfigFns ...func(e *echo.Echo) error)
 	// Add ready and liveness endpoints
 	e.GET("/-/ready", Ready)
 	e.GET("/-/live", Live)
-	e.GET("/-/started", Live)
+	e.GET("/-/started", Started)
 
 	for _, configFn := range ConfigFns {
 		if err := configFn(e); err != nil {
