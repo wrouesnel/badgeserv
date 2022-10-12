@@ -1,8 +1,9 @@
 package badgeconfig
 
 import (
-	"github.com/pkg/errors"
 	"net/url"
+
+	"github.com/pkg/errors"
 )
 
 // URL is a custom URL type that allows validation at configuration load time.

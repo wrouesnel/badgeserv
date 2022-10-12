@@ -59,6 +59,7 @@ const (
 	constReleaseDir  = "release"
 	constCmdDir      = "cmd"
 	constCoverFile   = ".cover.out"
+	constJunitDir    = ".junit"
 )
 
 const (
@@ -88,8 +89,9 @@ var gitHookDir = normalizePath(path.Join(curDir, constGitHookDir))
 var binDir = normalizePath(path.Join(curDir, constBinDir))
 var releaseDir = normalizePath(path.Join(curDir, constReleaseDir))
 var cmdDir = normalizePath(path.Join(curDir, constCmdDir))
+var junitDir = normalizePath(path.Join(curDir, constJunitDir))
 
-var outputDirs = []string{binDir, releaseDir, coverageDir}
+var outputDirs = []string{binDir, releaseDir, coverageDir, junitDir}
 
 //nolint:unused,varcheck
 var containerName = func() string {
@@ -449,11 +451,22 @@ func Tools() (err error) {
 		}
 	}()
 
-	toolBuild := func(toolType string, tools ...string) error {
+	toolBuild := func(toolType string, tools ...[]string) error {
 		toolTargets := []interface{}{}
 		for _, toolImport := range tools {
-			localToolImport := toolImport
-			f := func() error { return sh.Run("go", "install", "-v", localToolImport) }
+			binName := toolImport[0]
+			localToolImport := toolImport[1]
+
+			if binName != "" {
+				if _, err := os.Stat(path.Join(toolsBinDir, binName)); err == nil {
+					// Skip named binary which we already have
+					continue
+				}
+			}
+
+			f := func() error {
+				return sh.Run("go", "install", "-v", localToolImport)
+			}
 			toolTargets = append(toolTargets, f)
 		}
 
@@ -466,8 +479,8 @@ func Tools() (err error) {
 
 	// golangci-lint don't want to support if it's not a binary release, so
 	// don't go-install.
-
-	if berr := toolBuild("static", "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.48.0", "github.com/wadey/gocovmerge@latest"); berr != nil {
+	if berr := toolBuild("static", []string{"", "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.48.0"},
+		[]string{"gocovmerge", "github.com/wadey/gocovmerge@latest"}); berr != nil {
 		return berr
 	}
 

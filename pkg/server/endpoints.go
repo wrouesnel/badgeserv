@@ -2,12 +2,13 @@ package server
 
 import (
 	"fmt"
-	"github.com/flowchartsman/swaggerui"
-	"github.com/labstack/echo/v4"
-	"go.withmatt.com/httpheaders"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flowchartsman/swaggerui"
+	"github.com/labstack/echo/v4"
+	"go.withmatt.com/httpheaders"
 )
 
 func EchoSwaggerUIHandler(uiPath string, swaggerUISpec []byte) echo.HandlerFunc {

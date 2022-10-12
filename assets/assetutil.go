@@ -1,8 +1,9 @@
 package assets
 
 import (
-	"github.com/pkg/errors"
 	"io/ioutil"
+
+	"github.com/pkg/errors"
 )
 
 func ReadFile(name string) ([]byte, error) {

@@ -2,6 +2,11 @@ package server
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
+	"net/url"
+	"time"
+
 	"github.com/brpaz/echozap"
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-resty/resty/v2"
@@ -17,35 +22,29 @@ import (
 	"github.com/wrouesnel/badgeserv/version"
 	"go.uber.org/zap"
 	"go.withmatt.com/httpheaders"
-	"io"
-	"io/fs"
-	"net/url"
-	"time"
 )
 
-// ApiServerConfig configures local hosting parameters of the API server
-type ApiServerConfig struct {
+// APIServerConfig configures local hosting parameters of the API server.
+type APIServerConfig struct {
 	Prefix string `help:"Prefix the API is bing served under, if any"`
 	Host   string `help:"Host the API should be served on" default:""`
 	Port   int    `help:"Port to serve on" default:"8080"`
 
-	HttpClient ApiHttpClientConfig `embed:"" prefix:"http"`
+	HTTPClient APIHTTPClientConfig `embed:"" prefix:"http"`
 }
 
-// ApiHttpClientConfig configures the outbound HTTP request globals
-type ApiHttpClientConfig struct {
+// APIHTTPClientConfig configures the outbound HTTP request globals.
+type APIHTTPClientConfig struct {
 	Timeout   time.Duration `help:"Default HTTP request timeout" default:"3s"`
 	UserAgent string        `help:"User Agent string to send with requests" default:""`
 }
 
 var (
-	ErrApiInitializationFailed = errors.New("API failed to initialize")
+	ErrAPIInitializationFailed = errors.New("API failed to initialize")
 )
 
-// Api launches an ApiV1 instance server and manages it's lifecycle.
-func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig, assetConfig assets.AssetsConfig, badgeConfigDir string) error {
+func loadBadgeConfig(badgeConfigDir string) (*badgeconfig.Config, error) {
 	logger := zap.L()
-
 	var predefinedBadgeConfig *badgeconfig.Config
 	if badgeConfigDir != "" {
 		logger.Info("Loading predefined badge configs")
@@ -53,36 +52,47 @@ func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig, assetConf
 		predefinedBadgeConfig, err = badgeconfig.LoadDir(badgeConfigDir)
 		if err != nil {
 			logger.Error("Fatal error loading predefined badge configuration")
-			return errors.Wrap(err, "badgeconfig")
+			return predefinedBadgeConfig, errors.Wrap(err, "badgeconfig")
 		}
 	} else {
 		logger.Info("No predefined badge configs")
 		predefinedBadgeConfig = &badgeconfig.Config{PredefinedBadges: map[string]badgeconfig.BadgeDefinition{}}
 	}
+	return predefinedBadgeConfig, nil
+}
+
+// Api launches an ApiV1 instance server and manages it's lifecycle.
+func Api(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConfig assets.Config, badgeConfigDir string) error {
+	logger := zap.L()
+
+	predefinedBadgeConfig, err := loadBadgeConfig(badgeConfigDir)
+	if err != nil {
+		return errors.Wrap(err, "Api")
+	}
 
 	logger.Debug("Configuring API REST client")
 	httpClient := resty.New()
-	if serverConfig.HttpClient.UserAgent == "" {
+	if serverConfig.HTTPClient.UserAgent == "" {
 		httpClient.SetHeader(httpheaders.UserAgent, fmt.Sprintf("%s/%s", version.Name, version.Version))
 	} else {
-		httpClient.SetHeader(httpheaders.UserAgent, serverConfig.HttpClient.UserAgent)
+		httpClient.SetHeader(httpheaders.UserAgent, serverConfig.HTTPClient.UserAgent)
 	}
-	httpClient.SetTimeout(serverConfig.HttpClient.Timeout)
+	httpClient.SetTimeout(serverConfig.HTTPClient.Timeout)
 
 	badgeService := badges.NewBadgeService(&badgeConfig)
 
 	logger.Debug("Creating API config")
-	apiConfig := &api.ApiConfig{
+	apiConfig := &api.Config{
 		badgeService,
 		httpClient,
 		predefinedBadgeConfig,
 	}
-	apiInstance, apiPrefix := api.NewApi(apiConfig)
+	apiInstance, apiPrefix := api.NewAPI(apiConfig)
 
 	if apiInstance == nil {
-		err := ErrApiInitializationFailed
+		err := ErrAPIInitializationFailed
 		logger.Error("API failed to initialize", zap.Error(err))
-		return ErrApiInitializationFailed
+		return ErrAPIInitializationFailed
 	}
 
 	templateGlobals := make(pongo2.Context)
@@ -94,12 +104,12 @@ func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig, assetConf
 	}
 	templateGlobals["Colors"] = badgeService.Colors
 	templateGlobals["PredefinedBadges"] = lo.MapToSlice(predefinedBadgeConfig.PredefinedBadges, func(k string, v badgeconfig.BadgeDefinition) interface{} {
-		exampleUrl := url.URL{Path: fmt.Sprintf("predefined/%s/", k)}
-		qry := exampleUrl.Query()
+		exampleURL := url.URL{Path: fmt.Sprintf("predefined/%s/", k)}
+		qry := exampleURL.Query()
 		for k, v := range v.Example {
 			qry.Set(k, v)
 		}
-		exampleUrl.RawQuery = qry.Encode()
+		exampleURL.RawQuery = qry.Encode()
 
 		return struct {
 			Name       string
@@ -107,13 +117,13 @@ func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig, assetConf
 			badgeconfig.BadgeDefinition
 		}{
 			Name:            k,
-			ExampleURL:      exampleUrl.String(),
+			ExampleURL:      exampleURL.String(),
 			BadgeDefinition: v,
 		}
 	})
 
 	logger.Info("Starting API server")
-	if err := Server(serverConfig, assetConfig, templateGlobals, ApiConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {
+	if err := Server(serverConfig, assetConfig, templateGlobals, APIConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {
 		logger.Error("Error from server", zap.Error(err))
 		return errors.Wrap(err, "Server exiting with error")
 	}
@@ -121,23 +131,23 @@ func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig, assetConf
 	return nil
 }
 
-// ApiConfigure implements the logic necessary to launch an API from a server config and a server.
+// APIConfigure implements the logic necessary to launch an API from a server config and a server.
 // The primary difference to Api() is that the apInstance interface is explicitly passed.
-func ApiConfigure[T api.ServerInterface](serverConfig ApiServerConfig, apiInstance T, apiPrefix string) func(e *echo.Echo) error {
+func APIConfigure[T api.ServerInterface](serverConfig APIServerConfig, apiInstance T, apiPrefix string) func(e *echo.Echo) error {
 	return func(e *echo.Echo) error {
 		var logger = zap.L().With(zap.String("subsystem", "server"))
 
-		fullApiPrefix := fmt.Sprintf("%s/api/%s", serverConfig.Prefix, apiPrefix)
+		fullAPIPrefix := fmt.Sprintf("%s/api/%s", serverConfig.Prefix, apiPrefix)
 		logger.Info("Initializing API with apiPrefix",
 			zap.String("configured_prefix", serverConfig.Prefix),
 			zap.String("api_prefix", apiPrefix),
-			zap.String("api_basepath", fullApiPrefix))
+			zap.String("api_basepath", fullAPIPrefix))
 
-		api.RegisterHandlersWithBaseURL(e, apiInstance, fullApiPrefix)
+		api.RegisterHandlersWithBaseURL(e, apiInstance, fullAPIPrefix)
 		// Add the Swagger API as the frontend.
-		uiPrefix := fmt.Sprintf("%s/ui", fullApiPrefix)
-		uiHandler := EchoSwaggerUIHandler(uiPrefix, api.OpenApiSpec)
-		e.GET(fmt.Sprintf("%s", uiPrefix), uiHandler)
+		uiPrefix := fmt.Sprintf("%s/ui", fullAPIPrefix)
+		uiHandler := EchoSwaggerUIHandler(uiPrefix, api.OpenAPISpec)
+		e.GET(fmt.Sprintf("%s", uiPrefix), uiHandler) //nolint:gosimple
 		e.GET(fmt.Sprintf("%s/*", uiPrefix), uiHandler)
 		logger.Info("Swagger UI configured apiPrefix", zap.String("ui_path", uiPrefix))
 
@@ -146,7 +156,7 @@ func ApiConfigure[T api.ServerInterface](serverConfig ApiServerConfig, apiInstan
 }
 
 // Server configures and starts an Echo server with standard capabilities, and configuration functions.
-func Server(serverConfig ApiServerConfig, assetConfig assets.AssetsConfig, templateGlobals pongo2.Context, ConfigFns ...func(e *echo.Echo) error) error {
+func Server(serverConfig APIServerConfig, assetConfig assets.Config, templateGlobals pongo2.Context, configFns ...func(e *echo.Echo) error) error {
 	logger := zap.L().With(zap.String("subsystem", "server"))
 
 	e := echo.New()
@@ -184,12 +194,12 @@ func Server(serverConfig ApiServerConfig, assetConfig assets.AssetsConfig, templ
 	//	e.GET("/css/*", Static(webAssets, "text/css"))
 	//e.GET("/js/*", Static(webAssets, "application/javascript"))
 
-	for _, configFn := range ConfigFns {
+	for _, configFn := range configFns {
 		if err := configFn(e); err != nil {
 			logger.Error("Failed calling configuration function", zap.Error(err))
 		}
 	}
 
 	err := e.Start(fmt.Sprintf("%s:%d", serverConfig.Host, serverConfig.Port))
-	return err
+	return errors.Wrap(err, "Server")
 }

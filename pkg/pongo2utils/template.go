@@ -10,7 +10,7 @@ type Template struct {
 	*pongo2.Template
 }
 
-// Decode implements the kong.MapperValue on-top of pongo2 Templates
+// Decode implements the kong.MapperValue on-top of pongo2 Templates.
 func (t *Template) UnmarshalText(text []byte) error {
 	loadedTemplate, err := pongo2.FromBytes(text)
 	if loadedTemplate == nil {

@@ -3,13 +3,14 @@ package kongutil
 
 import (
 	"encoding/json"
+	"io"
+	"io/ioutil"
+	"strings"
+
 	"github.com/alecthomas/kong"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
-	"io"
-	"io/ioutil"
-	"strings"
 )
 
 var (
@@ -37,10 +38,10 @@ func Hybrid(r io.Reader) (kong.Resolver, error) {
 			if values, ok := raw.(map[string]interface{}); ok {
 				raw, ok = values[part]
 				if !ok {
-					return nil, nil
+					return raw, nil
 				}
 			} else {
-				return nil, nil
+				return raw, nil
 			}
 		}
 		return raw, nil

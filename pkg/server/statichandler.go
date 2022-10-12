@@ -2,12 +2,13 @@ package server
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
-	"go.withmatt.com/httpheaders"
 	"io/fs"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/labstack/echo/v4"
+	"go.withmatt.com/httpheaders"
 )
 
 func StaticGet(root fs.FS, mimeType string) echo.HandlerFunc {

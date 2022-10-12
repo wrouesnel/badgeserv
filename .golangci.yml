@@ -2,6 +2,9 @@ run:
   build-tags:
     - mage
 
+output:
+  format: junit-xml:.junit/linters.xml,colored-line-number
+
 linters:
   enable-all: true
   disable:
@@ -26,12 +29,14 @@ linters:
     - godot
     # These all stopped working suddenly due to a non-existent compilation error.
     # Retry them regularly.
-    - stylecheck
-    - exhaustive
-    - staticcheck
-    - gosimple
-    - govet
-    - unused
+#    - stylecheck
+#    - exhaustive
+#    - staticcheck
+#    - gosimple
+#    - govet
+#    - unused
+    # Deprecated
+    - nosnakecase # deprecated
 
 issues:
   exclude-rules:
@@ -43,6 +48,15 @@ issues:
     - path: magefile.go
       linters:
         - unparam
+
+severity:
+  default-severity: error
+  rules:
+    - linters:
+        - godox
+        - funlen
+        - nolintlint
+      severity: info
 
 linters-settings:
   varnamelen:
@@ -69,9 +83,14 @@ linters-settings:
       - err
       - ch # common channel var
       - l # common log var
+      - k
       - v
       - c
       - ip
+      - f # function
+      - fn
+      - st
+      - e
     # Optional list of variable declarations that should be ignored completely. (defaults to empty list)
     # Entries must be in one of the following forms (see below for examples):
     # - for variables, parameters, named return values, method receivers, or type parameters:
@@ -116,3 +135,7 @@ linters-settings:
   gocritic:
     disabled-checks:
       - commentFormatting
+
+  wrapcheck:
+    ignoreInterfaceRegexps:
+      - ^.*Context.*

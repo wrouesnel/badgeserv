@@ -5,12 +5,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"io"
-	"io/fs"
 )
 
 type Renderer struct {
 	templateSet *pongo2.TemplateSet
-	assets      fs.FS
 }
 
 func NewRenderer(templateSet *pongo2.TemplateSet) Renderer {
@@ -24,11 +22,11 @@ func NewRenderer(templateSet *pongo2.TemplateSet) Renderer {
 func (r Renderer) Render(writer io.Writer, templateName string, templateData interface{}, context echo.Context) error {
 	template, err := r.templateSet.FromCache(templateName)
 	if err != nil {
-		return errors.Wrapf(err, "pongorenderer.Render: loading template failed %s", templateName)
+		return errors.Wrapf(err, "Render: loading template failed %s", templateName)
 	}
 
 	templateContext := map[string]interface{}{}
 	templateContext["t"] = templateData
 
-	return template.ExecuteWriter(templateContext, context.Response().Writer)
+	return errors.Wrapf(template.ExecuteWriter(templateContext, context.Response().Writer), "Render: template execution failed %s", templateName)
 }

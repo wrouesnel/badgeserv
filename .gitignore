@@ -7,3 +7,5 @@ node_modules
 /release
 /.cover.out
 /test-configs
+/.junit
+

@@ -2,13 +2,18 @@ package badgeconfig
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"path/filepath"
+)
+
+var (
+	ErrConfigLoading = errors.New("error while loading configuration")
 )
 
 type BadgeDesc struct {
@@ -43,34 +48,6 @@ func Decoder(target interface{}, allowUnused bool) (*mapstructure.Decoder, error
 	return decoder, nil
 }
 
-// configMapMerge merges config maps right-to-left. Maps and nested maps
-// are merged key-by-key, but lists will be replaced.
-func configMapMerge(left, right map[string]interface{}) {
-	for k, leftValue := range left {
-		// left key does not exist in right map
-		rightValue, ok := right[k]
-		if !ok {
-			right[k] = leftValue
-			continue
-		}
-		// does exist - check if this is a map type on the right
-		switch v := rightValue.(type) {
-		case map[string]interface{}:
-			// check if map on the left
-			leftValueMap, ok := leftValue.(map[string]interface{})
-			if !ok {
-				// Not a value map on left.
-				break
-			}
-			// map on both sides - descend and merge.
-			configMapMerge(leftValueMap, v)
-		default:
-			// leave non-maps alone on the right.
-			continue
-		}
-	}
-}
-
 // loadConfigMap unmarshals config bytes into the map for mapstructure.
 func loadConfigMap(configBytes []byte) (map[string]interface{}, error) {
 	// Load the default config to setup the defaults
@@ -84,7 +61,6 @@ func loadConfigMap(configBytes []byte) (map[string]interface{}, error) {
 }
 
 // Load loads a configuration file from the supplied bytes.
-//nolint:forcetypeassert,funlen,cyclop
 func Load(configData []byte) (*Config, error) {
 	//defaultMap := loadDefaultConfigMap()
 	configMap, err := loadConfigMap(configData)
@@ -131,19 +107,26 @@ func LoadDir(dirPath string) (*Config, error) {
 
 	finalConfig := Config{PredefinedBadges: map[string]BadgeDefinition{}}
 
+	errors := []error{}
 	for _, configPath := range matches {
 		logger.Debug("Loading predefined badges from config file", zap.String("config_path", configPath))
 		configBytes, err := ioutil.ReadFile(configPath)
 		if err != nil {
 			logger.Warn("Could not read config file", zap.String("config_path", configPath), zap.Error(err))
+			errors = append(errors, err)
 			continue
 		}
 		config, err := Load(configBytes)
 		if err != nil {
 			logger.Warn("Config parsing error", zap.String("config_path", configPath), zap.Error(err))
+			errors = append(errors, err)
 			continue
 		}
 		finalConfig.PredefinedBadges = lo.Assign(finalConfig.PredefinedBadges, config.PredefinedBadges)
+	}
+
+	if len(errors) > 0 {
+		return &finalConfig, ErrConfigLoading
 	}
 
 	return &finalConfig, nil

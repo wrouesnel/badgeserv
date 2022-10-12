@@ -4,6 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
@@ -15,8 +18,6 @@ import (
 	"github.com/wrouesnel/badgeserv/pkg/server/badgeconfig"
 	"github.com/wrouesnel/badgeserv/version"
 	"go.withmatt.com/httpheaders"
-	"net/http"
-	"time"
 )
 
 //go:generate bash -c "oapi-codegen -package api openapi.yaml > api.gen.go"
@@ -25,7 +26,7 @@ var (
 	ErrPredefinedBadgeNotFound = errors.New("Predefined badge name not found")
 )
 
-// ApiImpl implements the actual nmap-api
+// ApiImpl implements the actual nmap-api.
 type apiImpl struct {
 	version          string
 	badgeService     badges.BadgeService
@@ -116,7 +117,7 @@ func (a *apiImpl) GetBadgeDynamic(ctx echo.Context, params GetBadgeDynamicParams
 		})
 	}
 
-	badge, err := a.badgeService.CreateBadge(label, message, color)
+	badge, err := a.badgeService.CreateBadge(badges.BadgeDesc{Title: label, Text: message, Color: color})
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, &ClientError{
 			Description: "Badge generation failed",
@@ -157,13 +158,13 @@ func (a *apiImpl) GetBadgePredefinedPredefinedName(ctx echo.Context, predefinedN
 	//		queryParams = params.Params.AdditionalProperties
 	//	}
 	//}
-	queryParams := lo.MapEntries(ctx.Request().URL.Query(), func(k string, v []string) (string, interface{}) {
+	queryParams := lo.MapEntries(ctx.Request().URL.Query(), func(queryParamName string, v []string) (string, interface{}) {
 		value := ""
 		if len(v) > 0 {
 			value = v[0]
 		}
 
-		return k, value
+		return queryParamName, value
 	})
 
 	target, err := targetTemplate.Execute(lo.PickByKeys(queryParams, lo.Keys(badgeDef.Parameters)))
@@ -187,7 +188,7 @@ func (a *apiImpl) GetBadgeStatic(ctx echo.Context, params GetBadgeStaticParams) 
 	message := lo.FromPtr[string](params.Message)
 	color := lo.FromPtr[string](params.Color)
 
-	badge, err := a.badgeService.CreateBadge(label, message, color)
+	badge, err := a.badgeService.CreateBadge(badges.BadgeDesc{label, message, color})
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, &ClientError{
 			Description: "Badge generation failed",
@@ -212,15 +213,15 @@ func (a *apiImpl) svgResponse(ctx echo.Context, svgData string) error {
 	return ctx.Blob(http.StatusOK, "image/svg+xml", minifiedSvg)
 }
 
-// ApiConfig provides the up-front configuration necessary to launch an API
-type ApiConfig struct {
+// Config provides the up-front configuration necessary to launch an API.
+type Config struct {
 	BadgeService     badges.BadgeService
-	HttpClient       *resty.Client
+	HTTPClient       *resty.Client
 	PredefinedBadges *badgeconfig.Config
 }
 
-// NewApi returns the API server instance and the version prefix
-func NewApi(apiConfig *ApiConfig) (ServerInterface, string) {
+// NewAPI returns the API server instance and the version prefix.
+func NewAPI(apiConfig *Config) (ServerInterface, string) {
 	if apiConfig.BadgeService == nil {
 		return nil, "err"
 	}
@@ -232,21 +233,16 @@ func NewApi(apiConfig *ApiConfig) (ServerInterface, string) {
 		version.Version,
 		apiConfig.BadgeService,
 		minifier,
-		apiConfig.HttpClient,
+		apiConfig.HTTPClient,
 		apiConfig.PredefinedBadges,
 	}, "v1"
 }
 
-// GetOpenapiYaml implements returning the openapi.yaml file
+// GetOpenapiYaml implements returning the openapi.yaml file.
 func (a *apiImpl) GetOpenapiYaml(ctx echo.Context) error {
 	header := ctx.Response().Header()
-	header.Set("Content-Type", "application/yaml;text/plain")
-	header.Set("Content-Disposition", "inline; filename=\"openapi.yaml\"")
-
-	ctx.Response().WriteHeader(http.StatusOK)
-
-	_, err := ctx.Response().Write(OpenApiSpec)
-	return err
+	header.Set(httpheaders.ContentDisposition, "inline; filename=\"openapi.yaml\"")
+	return ctx.Blob(http.StatusOK, "application/yaml;text/plain", OpenAPISpec)
 }
 
 func (a *apiImpl) GetPing(ctx echo.Context) error {

@@ -19,14 +19,14 @@ func Assets() fs.FS {
 	return assets
 }
 
-var useFileSystem bool = false
+var useFileSystem bool = false //nolint:gochecknoglobals
 
-// UseFilesystem configures whether to use local filesytem files or embedded ones
+// UseFilesystem configures whether to use local filesytem files or embedded ones.
 func UseFilesystem(val bool) {
 	useFileSystem = val
 }
 
-type AssetsConfig struct {
+type Config struct {
 	UseFilesystem  bool `help:"Use assets from the filesystem rather then the embedded binary" default:"false"`
 	DebugTemplates bool `help:"Enable template debugging (disables caching)" default:"false"`
 }

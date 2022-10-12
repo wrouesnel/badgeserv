@@ -34,6 +34,11 @@ jobs:
           go-version: 1.18
       - name: Lint
         run: go run mage.go lint
+      - name: Publish Linter Reports
+        uses: mikepenz/action-junit-report@v3
+        if: always() # always run even if the previous step fails
+        with:
+          report_paths: '.junit/*.xml'
 
   test:
     runs-on: ubuntu-latest

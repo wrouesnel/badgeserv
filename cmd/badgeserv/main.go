@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/wrouesnel/badgeserv/pkg/entrypoint"
 	"os"
+
+	"github.com/wrouesnel/badgeserv/pkg/entrypoint"
 )
 
 func main() {

@@ -4,6 +4,10 @@ package entrypoint
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path"
+
 	"github.com/alecthomas/kong"
 	gap "github.com/muesli/go-app-paths"
 	"github.com/samber/lo"
@@ -13,9 +17,6 @@ import (
 	"github.com/wrouesnel/badgeserv/pkg/server"
 	"github.com/wrouesnel/badgeserv/version"
 	"go.uber.org/zap"
-	"io"
-	"os"
-	"path"
 )
 
 //nolint:gochecknoglobals
@@ -25,8 +26,8 @@ var CLI struct {
 		Format string `help:"logging format (${enum})" enum:"console,json" default:"json"`
 	} `embed:"" prefix:"logging."`
 
-	Assets assets.AssetsConfig `embed:"" prefix:"assets."`
-	Badges badges.BadgeConfig  `embed:"" prefix:"badges."`
+	Assets assets.Config      `embed:"" prefix:"assets."`
+	Badges badges.BadgeConfig `embed:"" prefix:"badges."`
 
 	BadgeConfigDir string `help:"Path to the predefined badge configuration directory" type:"existingdir"`
 
@@ -40,7 +41,7 @@ var CLI struct {
 		} `cmd:""`
 	} `cmd:""`
 
-	Api server.ApiServerConfig `cmd:"" help:"Launch the web API"`
+	API server.APIServerConfig `cmd:"" help:"Launch the web API"`
 }
 
 func configFileName(prefix string, ext string) string {
