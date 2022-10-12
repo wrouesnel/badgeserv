@@ -4,7 +4,10 @@ require (
 	github.com/alecthomas/kong v0.6.1
 	github.com/brpaz/echozap v1.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
+	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/getkin/kin-openapi v0.97.0
+	github.com/go-resty/resty/v2 v2.7.0
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/integralist/go-findroot v0.0.0-20160518114804-ac90681525dc
 	github.com/labstack/echo-contrib v0.12.0
 	github.com/labstack/echo/v4 v4.7.2
@@ -13,29 +16,27 @@ require (
 	github.com/muesli/go-app-paths v0.2.2
 	github.com/pelletier/go-toml/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
-	go.uber.org/zap v1.21.0
+	github.com/rogpeppe/go-internal v1.9.0
+	github.com/samber/lo v1.31.0
+	github.com/tdewolff/minify v2.3.6+incompatible
+	go.uber.org/zap v1.23.0
+	go.withmatt.com/httpheaders v0.0.0-20220809015020-3dbe1127da7b
+	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69
 
 )
 
 require (
 	github.com/dsnet/compress v0.0.1 // indirect
-	github.com/flosch/pongo2/v6 v6.0.0 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
-	github.com/go-resty/resty/v2 v2.7.0 // indirect
-	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
-	github.com/samber/lo v1.31.0 // indirect
-	github.com/tdewolff/minify v2.3.6+incompatible // indirect
 	github.com/tdewolff/parse v2.3.4+incompatible // indirect
+	github.com/tdewolff/test v1.0.7 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	go.withmatt.com/httpheaders v0.0.0-20220809015020-3dbe1127da7b // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
-	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
 )
 
 require (
