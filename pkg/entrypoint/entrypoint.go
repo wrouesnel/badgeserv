@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	gap "github.com/muesli/go-app-paths"
@@ -86,7 +87,15 @@ func Entrypoint(stdOut io.Writer, stdErr io.Writer) int {
 	appCtx, appCancel := context.WithCancel(context.Background())
 	defer appCancel()
 
-	configDirs, deferredLogs := configDirListGet()
+	configDirs := []string{}
+	deferredLogs := []string{}
+
+	configfileEnvVar := fmt.Sprintf("%s_%s", strings.ToUpper(version.Name), "CONFIGFILE")
+	if os.Getenv(configfileEnvVar) != "" {
+		configDirs = []string{os.Getenv(configfileEnvVar)}
+	} else {
+		configDirs, deferredLogs = configDirListGet()
+	}
 
 	// Command line parsing can now happen
 	ctx := kong.Parse(&CLI,
