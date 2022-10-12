@@ -35,13 +35,13 @@ All features can be explored from the swagger UI at `/api/v1/ui`
 
 ### Static Badges
 
-`GET /api/v1/static?name=Name&value=Value&color=green`
+`GET /api/v1/badge/static?name=Name&value=Value&color=green`
 
 Generate simple badges directly from a URL.
 
 ### Custom Badges
 
-`GET /api/v1/dynamic/?target=https://my-json-service/this/should/be/encoded/properly&label=This can be Pongo2&message=So can this {{like.with.a.value}}`
+`GET /api/v1/badge/dynamic/?target=https://my-json-service/this/should/be/encoded/properly&label=This can be Pongo2&message=So can this {{like.with.a.value}}`
 
 Generate dynamic badges from any JSON endpoint using [pongo2](https://github.com/flosch/pongo2) for data
 extraction.
