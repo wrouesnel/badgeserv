@@ -1,4 +1,8 @@
-
+[![Build and Test](https://github.com/wrouesnel/badgeserv/actions/workflows/integration.yml/badge.svg)](https://github.com/wrouesnel/badgeserv/actions/workflows/integration.yml)
+[![Release](https://github.com/wrouesnel/badgeserv/actions/workflows/release.yml/badge.svg)](https://github.com/wrouesnel/badgeserv/actions/workflows/release.yml)
+[![Container Build](https://github.com/wrouesnel/badgeserv/actions/workflows/container.yml/badge.svg)](https://github.com/wrouesnel/badgeserv/actions/workflows/container.yml)
+[![Coverage Status](https://coveralls.io/repos/github/wrouesnel/badgeserv/badge.svg?branch=main)](https://coveralls.io/github/wrouesnel/badgeserv?branch=main)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wrouesnel/badgeserv)
 
 # BadgeServ
 
