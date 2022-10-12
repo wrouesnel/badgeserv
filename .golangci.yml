@@ -35,8 +35,10 @@ linters:
 #    - gosimple
 #    - govet
 #    - unused
+    - godox # noisy and counterproductive
     # Deprecated
     - nosnakecase # deprecated
+    - ifshort # deprecated
 
 issues:
   exclude-rules:
@@ -48,6 +50,8 @@ issues:
     - path: magefile.go
       linters:
         - unparam
+  exclude:
+    - "ST1023: should omit type .*"
 
 severity:
   default-severity: error
@@ -137,5 +141,5 @@ linters-settings:
       - commentFormatting
 
   wrapcheck:
-    ignoreInterfaceRegexps:
-      - ^.*Context.*
+    ignoreSigRegexps:
+      - func \(github\.com/labstack/echo/v4\.Context\)

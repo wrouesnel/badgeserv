@@ -1,10 +1,11 @@
 package pongorenderer
 
 import (
+	"io"
+
 	"github.com/flosch/pongo2/v6"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type Renderer struct {

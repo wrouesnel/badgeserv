@@ -61,13 +61,14 @@ func loadBadgeConfig(badgeConfigDir string) (*badgeconfig.Config, error) {
 	return predefinedBadgeConfig, nil
 }
 
-// Api launches an ApiV1 instance server and manages it's lifecycle.
-func Api(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConfig assets.Config, badgeConfigDir string) error {
+// API launches an ApiV1 instance server and manages it's lifecycle.
+//nolint:funlen
+func API(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConfig assets.Config, badgeConfigDir string) error {
 	logger := zap.L()
 
 	predefinedBadgeConfig, err := loadBadgeConfig(badgeConfigDir)
 	if err != nil {
-		return errors.Wrap(err, "Api")
+		return errors.Wrap(err, "API")
 	}
 
 	logger.Debug("Configuring API REST client")
@@ -83,9 +84,9 @@ func Api(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConf
 
 	logger.Debug("Creating API config")
 	apiConfig := &api.Config{
-		badgeService,
-		httpClient,
-		predefinedBadgeConfig,
+		BadgeService:     badgeService,
+		HTTPClient:       httpClient,
+		PredefinedBadges: predefinedBadgeConfig,
 	}
 	apiInstance, apiPrefix := api.NewAPI(apiConfig)
 
@@ -132,7 +133,7 @@ func Api(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConf
 }
 
 // APIConfigure implements the logic necessary to launch an API from a server config and a server.
-// The primary difference to Api() is that the apInstance interface is explicitly passed.
+// The primary difference to API() is that the apInstance interface is explicitly passed.
 func APIConfigure[T api.ServerInterface](serverConfig APIServerConfig, apiInstance T, apiPrefix string) func(e *echo.Echo) error {
 	return func(e *echo.Echo) error {
 		var logger = zap.L().With(zap.String("subsystem", "server"))

@@ -24,7 +24,7 @@ func dispatchCommands(ctx *kong.Context, _ context.Context, stdOut io.Writer) er
 
 	switch ctx.Command() {
 	case "api":
-		err = server.Api(CLI.API, CLI.Badges, CLI.Assets, CLI.BadgeConfigDir)
+		err = server.API(CLI.API, CLI.Badges, CLI.Assets, CLI.BadgeConfigDir)
 
 	case "debug assets list":
 		err = fs.WalkDir(assets.Assets(), ".", func(path string, d fs.DirEntry, err error) error {

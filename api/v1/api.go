@@ -41,6 +41,7 @@ func (a *apiImpl) generateETag(in []byte) string {
 	return fmt.Sprintf("sha256:%x", sha256.Sum256(in))
 }
 
+//nolint:funlen
 func (a *apiImpl) GetBadgeDynamic(ctx echo.Context, params GetBadgeDynamicParams) error {
 	target := params.Target
 	labelTemplateString := lo.FromPtr(params.Label)
@@ -188,7 +189,7 @@ func (a *apiImpl) GetBadgeStatic(ctx echo.Context, params GetBadgeStaticParams) 
 	message := lo.FromPtr[string](params.Message)
 	color := lo.FromPtr[string](params.Color)
 
-	badge, err := a.badgeService.CreateBadge(badges.BadgeDesc{label, message, color})
+	badge, err := a.badgeService.CreateBadge(badges.BadgeDesc{Title: label, Text: message, Color: color})
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, &ClientError{
 			Description: "Badge generation failed",

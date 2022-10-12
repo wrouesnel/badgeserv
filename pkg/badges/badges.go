@@ -25,14 +25,14 @@ type BadgeConfig struct {
 	ColorList    map[string]string `help:"Plaintext badge colors" default:"brightgreen=4c1;green=97CA00;yellow=dfb317;yellowgreen=a4a61d;orange=fe7d37;red=e05d44;blue=007ec6;grey=555;gray=555;lightgrey=9f9f9f;lightgray=9f9f9f"`
 }
 
-// BadgeDesc is all the data to generate a badge
+// BadgeDesc is all the data to generate a badge.
 type BadgeDesc struct {
 	Title string
 	Text  string
 	Color string
 }
 
-// BadgeService implements generating badge SVGs
+// BadgeService implements generating badge SVGs.
 type BadgeService interface {
 	CreateBadge(desc BadgeDesc) (string, error)
 	Colors() []ColorMapping
@@ -45,7 +45,7 @@ type badgeService struct {
 	fontCalc      *FontCalculator
 }
 
-// NewBadgeService initializes a new BadgeService interface
+// NewBadgeService initializes a new BadgeService interface.
 func NewBadgeService(config *BadgeConfig) BadgeService {
 	font := lo.Must(truetype.Parse(lo.Must(assets.ReadFile("fonts/DejaVuSans.ttf"))))
 	fontCalc := NewFontCalculator(font)
