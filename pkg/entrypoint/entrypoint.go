@@ -87,7 +87,7 @@ func Entrypoint(stdOut io.Writer, stdErr io.Writer) int {
 	appCtx, appCancel := context.WithCancel(context.Background())
 	defer appCancel()
 
-	configDirs := []string{}
+	var configDirs []string
 	deferredLogs := []string{}
 
 	configfileEnvVar := fmt.Sprintf("%s_%s", strings.ToUpper(version.Name), "CONFIGFILE")
