@@ -1,6 +1,32 @@
 package assets
 
-import "embed"
+import (
+	"embed"
+	"io/fs"
+	"os"
+)
 
-//go:embed swagger-ui fonts badges
-var Assets embed.FS
+const filesystemAssetPath = "assets"
+
+//go:embed swagger-ui fonts badges web
+var assets embed.FS
+
+// Assets returns an fs.FS object pointing to the asset provider.
+func Assets() fs.FS {
+	if useFileSystem {
+		return os.DirFS(filesystemAssetPath)
+	}
+	return assets
+}
+
+var useFileSystem bool = false
+
+// UseFilesystem configures whether to use local filesytem files or embedded ones
+func UseFilesystem(val bool) {
+	useFileSystem = val
+}
+
+type AssetsConfig struct {
+	UseFilesystem  bool `help:"Use assets from the filesystem rather then the embedded binary" default:"false"`
+	DebugTemplates bool `help:"Enable template debugging (disables caching)" default:"false"`
+}

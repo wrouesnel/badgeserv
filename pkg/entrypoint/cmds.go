@@ -16,23 +16,24 @@ var (
 	ErrCommandNotImplemented = errors.New("Command not implemented")
 )
 
+//nolint:revive
 func dispatchCommands(ctx *kong.Context, appCtx context.Context, stdOut io.Writer) error {
 	var err error
 	logger := zap.L().With(zap.String("command", ctx.Command()))
 
 	switch ctx.Command() {
 	case "api":
-		err = server.Api(CLI.Api, CLI.Badges)
+		err = server.Api(CLI.Api, CLI.Badges, CLI.Assets, CLI.BadgeConfigDir)
 
 	case "debug assets list":
-		err = fs.WalkDir(assets.Assets, ".", func(path string, d fs.DirEntry, err error) error {
+		err = fs.WalkDir(assets.Assets(), ".", func(path string, d fs.DirEntry, err error) error {
 			_, _ = fmt.Fprintf(stdOut, "%s\n", path)
 			return nil
 		})
 
 	case "debug assets cat":
 		var content []byte
-		if content, err = assets.Assets.ReadFile(CLI.Debug.Assets.Cat.Filename); err == nil {
+		if content, err = assets.ReadFile(CLI.Debug.Assets.Cat.Filename); err == nil {
 			_, _ = stdOut.Write(content)
 		} else {
 			logger.Error("Error reading embedded file", zap.Error(err))

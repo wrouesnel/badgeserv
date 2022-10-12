@@ -1,0 +1,18 @@
+---
+# Sample configuration file. There is a 1:1 correspondance of command line and
+# configuration file parameters, with command line parameters taking precedence.
+# Values with hyphens become underscores in the config file. The default
+# configuration search path is extensive and can be overriden by the
+# BADGESERV_CONFIG_PATH environment variable.
+#
+# The values here are set for debugging and development.
+
+assets:
+  use_filesystem: true
+  debug_templates: true
+
+logging:
+  level: debug
+  format: console
+
+badge_config_dir: examples

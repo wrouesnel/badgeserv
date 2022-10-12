@@ -6,7 +6,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/wrouesnel/badgeserv/assets"
+	"sort"
+	"strings"
 )
+
+// ColorMapping provides structure for returning and sorting color mappings
+type ColorMapping struct {
+	Name  string
+	Color string
+}
 
 // BadgeConfig provides configuration for a badge service
 type BadgeConfig struct {
@@ -18,6 +26,7 @@ type BadgeConfig struct {
 
 type BadgeService interface {
 	CreateBadge(title string, text string, color string) (string, error)
+	Colors() []ColorMapping
 }
 
 // BadgeService implements the actual badge generator
@@ -28,15 +37,31 @@ type badgeService struct {
 }
 
 func NewBadgeService(config *BadgeConfig) BadgeService {
-	font := lo.Must(truetype.Parse(lo.Must(assets.Assets.ReadFile("fonts/DejaVuSans.ttf"))))
+	font := lo.Must(truetype.Parse(lo.Must(assets.ReadFile("fonts/DejaVuSans.ttf"))))
 	fontCalc := NewFontCalculator(font)
 
 	return &badgeService{
 		config:        config,
-		badgeTemplate: lo.Must(pongo2.FromBytes(lo.Must(assets.Assets.ReadFile("badges/badge.svg.p2")))),
+		badgeTemplate: lo.Must(pongo2.FromBytes(lo.Must(assets.ReadFile("badges/badge.svg.p2")))),
 		fontCalc:      fontCalc,
 	}
 
+}
+
+// Colors returns the current configured color mappings
+func (bs *badgeService) Colors() []ColorMapping {
+	colors := lo.MapToSlice(bs.config.ColorList, func(name string, color string) ColorMapping {
+		return ColorMapping{
+			Name:  name,
+			Color: color,
+		}
+	})
+
+	sort.Slice(colors, func(i, j int) bool {
+		return strings.Compare(colors[i].Name, colors[j].Name) < 0
+	})
+
+	return colors
 }
 
 func (bs *badgeService) CreateBadge(title string, text string, color string) (string, error) {

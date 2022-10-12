@@ -7,10 +7,12 @@ import (
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/tdewolff/minify"
 	"github.com/tdewolff/minify/svg"
 	"github.com/wrouesnel/badgeserv/pkg/badges"
+	"github.com/wrouesnel/badgeserv/pkg/server/badgeconfig"
 	"github.com/wrouesnel/badgeserv/version"
 	"go.withmatt.com/httpheaders"
 	"net/http"
@@ -19,13 +21,20 @@ import (
 
 //go:generate bash -c "oapi-codegen -package api openapi.yaml > api.gen.go"
 
+var (
+	ErrPredefinedBadgeNotFound = errors.New("Predefined badge name not found")
+)
+
 // ApiImpl implements the actual nmap-api
 type apiImpl struct {
-	version      string
-	badgeService badges.BadgeService
-	minify       *minify.M
-	httpClient   *resty.Client
+	version          string
+	badgeService     badges.BadgeService
+	minify           *minify.M
+	httpClient       *resty.Client
+	predefinedBadges *badgeconfig.Config
 }
+
+const DynamicBadgeResponseName = "r"
 
 func (a *apiImpl) generateETag(in []byte) string {
 	return fmt.Sprintf("sha256:%x", sha256.Sum256(in))
@@ -81,7 +90,7 @@ func (a *apiImpl) GetBadgeDynamic(ctx echo.Context, params GetBadgeDynamicParams
 	// Template the badge parameters
 	pongo2.SetAutoescape(false) // TODO: don't set globals like this
 	templateCtx := map[string]interface{}{}
-	templateCtx["response"] = responseData
+	templateCtx[DynamicBadgeResponseName] = responseData
 
 	label, err := labelTmpl.Execute(templateCtx)
 	if err != nil {
@@ -124,8 +133,53 @@ func (a *apiImpl) GetBadgePredefined(ctx echo.Context) error {
 }
 
 func (a *apiImpl) GetBadgePredefinedPredefinedName(ctx echo.Context, predefinedName string, params GetBadgePredefinedPredefinedNameParams) error {
-	//TODO implement me
-	panic("implement me")
+	badgeDef, ok := a.predefinedBadges.PredefinedBadges[predefinedName]
+	if !ok {
+		return ctx.JSON(http.StatusNotFound, &ClientError{
+			Description: "Predefined badge with given name does not exist",
+			Error:       ErrPredefinedBadgeNotFound.Error(),
+		})
+	}
+
+	targetTemplate, err := pongo2.FromBytes([]byte(badgeDef.Target))
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, &ClientError{
+			Description: "Predefined badge target template failed to parse",
+			Error:       err.Error(),
+		})
+	}
+
+	// This code should handle things for us .. but it doesn't work with the current generator. So instead parse
+	// from the URL directly.
+	//queryParams := map[string]interface{}{}
+	//if params.Params != nil {
+	//	if params.Params.AdditionalProperties != nil {
+	//		queryParams = params.Params.AdditionalProperties
+	//	}
+	//}
+	queryParams := lo.MapEntries(ctx.Request().URL.Query(), func(k string, v []string) (string, interface{}) {
+		value := ""
+		if len(v) > 0 {
+			value = v[0]
+		}
+
+		return k, value
+	})
+
+	target, err := targetTemplate.Execute(lo.PickByKeys(queryParams, lo.Keys(badgeDef.Parameters)))
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, &ClientError{
+			Description: "Predefined badge target template failed to execute",
+			Error:       err.Error(),
+		})
+	}
+
+	return a.GetBadgeDynamic(ctx, GetBadgeDynamicParams{
+		Target:  target,
+		Label:   &badgeDef.Label,
+		Message: &badgeDef.Message,
+		Color:   &badgeDef.Color,
+	})
 }
 
 func (a *apiImpl) GetBadgeStatic(ctx echo.Context, params GetBadgeStaticParams) error {
@@ -160,8 +214,9 @@ func (a *apiImpl) svgResponse(ctx echo.Context, svgData string) error {
 
 // ApiConfig provides the up-front configuration necessary to launch an API
 type ApiConfig struct {
-	BadgeService badges.BadgeService
-	HttpClient   *resty.Client
+	BadgeService     badges.BadgeService
+	HttpClient       *resty.Client
+	PredefinedBadges *badgeconfig.Config
 }
 
 // NewApi returns the API server instance and the version prefix
@@ -178,6 +233,7 @@ func NewApi(apiConfig *ApiConfig) (ServerInterface, string) {
 		apiConfig.BadgeService,
 		minifier,
 		apiConfig.HttpClient,
+		apiConfig.PredefinedBadges,
 	}, "v1"
 }
 

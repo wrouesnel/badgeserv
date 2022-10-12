@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/flowchartsman/swaggerui"
 	"github.com/labstack/echo/v4"
+	"go.withmatt.com/httpheaders"
 	"net/http"
 	"strings"
 	"time"
@@ -30,18 +31,26 @@ func EchoSwaggerUIHandler(uiPath string, swaggerUISpec []byte) echo.HandlerFunc 
 // Live returns 200 OK if the application server is still functional and able
 // to handle requests.
 func Live(c echo.Context) error {
+	c.Response().Header().Set(httpheaders.CacheControl, "no-cache")
 	resp := &LivenessResponse{RespondedAt: time.Now()}
 	return c.JSON(http.StatusOK, resp)
 }
 
 // Ready returns 200 OK if the application is ready to serve new requests.
 func Ready(c echo.Context) error {
+	c.Response().Header().Set(httpheaders.CacheControl, "no-cache")
 	resp := &ReadinessResponse{RespondedAt: time.Now()}
 	return c.JSON(http.StatusOK, resp)
 }
 
 // Started returns 200 OK once the application is started.
 func Started(c echo.Context) error {
+	c.Response().Header().Set(httpheaders.CacheControl, "no-cache")
 	resp := &StartedResponse{RespondedAt: time.Now()}
 	return c.JSON(http.StatusOK, resp)
+}
+
+func Index(c echo.Context) error {
+	c.Response().Header().Set(httpheaders.CacheControl, "no-cache")
+	return c.Render(http.StatusOK, "index.html.p2", nil)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 	gap "github.com/muesli/go-app-paths"
 	"github.com/samber/lo"
+	"github.com/wrouesnel/badgeserv/assets"
 	"github.com/wrouesnel/badgeserv/pkg/badges"
 	"github.com/wrouesnel/badgeserv/pkg/kongutil"
 	"github.com/wrouesnel/badgeserv/pkg/server"
@@ -17,13 +18,17 @@ import (
 	"path"
 )
 
+//nolint:gochecknoglobals
 var CLI struct {
 	Logging struct {
 		Level  string `help:"logging level" default:"info"`
 		Format string `help:"logging format (${enum})" enum:"console,json" default:"json"`
 	} `embed:"" prefix:"logging."`
 
-	Badges badges.BadgeConfig `embed:"" prefix:"badges"`
+	Assets assets.AssetsConfig `embed:"" prefix:"assets."`
+	Badges badges.BadgeConfig  `embed:"" prefix:"badges."`
+
+	BadgeConfigDir string `help:"Path to the predefined badge configuration directory" type:"existingdir"`
 
 	Debug struct {
 		Assets struct {
@@ -109,6 +114,9 @@ func Entrypoint(stdOut io.Writer, stdErr io.Writer) int {
 	for _, line := range deferredLogs {
 		logger.Error(line)
 	}
+
+	logger.Info("Configuring asset handling", zap.Bool("use-filesystem", CLI.Assets.UseFilesystem))
+	assets.UseFilesystem(CLI.Assets.UseFilesystem)
 
 	if err := dispatchCommands(ctx, appCtx, stdOut); err != nil {
 		logger.Error("Error from command", zap.Error(err))

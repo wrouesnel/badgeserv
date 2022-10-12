@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>badgeserv</title>
+    <link rel="stylesheet" href="/css/bootstrap.css"/>
+    <link rel="stylesheet" href="/css/fontawesome.css"/>
+
+    <script src="/js/jquery-3.6.1.js" type="application/javascript"></script>
+    <script src="/js/bootstrap.js" type="application/javascript"></script>
+    <script src="/js/badgeserv.js" defer></script>
+    <style>
+        .block {
+            background-color: #f9f9f9;
+            margin-bottom: 30px;
+            margin-top: 30px;
+            padding: 30px 0;
+            text-align: center;
+        }
+        .footnote {
+            font-size: 0.9em;
+        }
+        .version {
+            font-size: 0.8em;
+        }
+        .red {
+            color: #c7254e;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <section id="section-header" class="row d-flex justify-content-center">
+            <div class="col-md-8 block">
+                <h1>{{ Version.Name }}</h1>
+                <p>{{ Version.Version }}</p>
+                <p>Generate badges using the controls below. All generated badges can be embedded by copying the image link.</p>
+                    <p>All badge inputs understand
+                    <a href="https://www.schlachter.tech/solutions/pongo2-template-engine/">pongo2</a> templating inputs
+                    (<a href="https://django.readthedocs.io/en/1.7.x/topics/templates.html">Django 1.7 compatible syntax</a>)</p>
+                <p>The Swagger UI is available on <a href="/api/v1/ui">/api/v1/ui</a></p>
+            </div>
+        </section>
+
+        <section id="section-constants" class="row d-flex justify-content-center">
+            <div class="col-md-8" style="text-align: center">
+                <p>The following colors are available by name. You can also specify any color by CSS color code.</p>
+            </div>
+            <div class="col-12" style="text-align: center">
+                {% for colorMapping in Colors %}
+                <img src="/api/v1/badge/static?message={{colorMapping.Name}}&color={{colorMapping.Name}}" alt="{{colorMapping.Name}}"/>
+                {% endfor %}
+            </div>
+        </section>
+        <section id="section-staticbadges" class="row">
+            <h2>Static Badges</h2>
+            <p>Enter your static badge parameters below and hit enter to update your badge.</p>
+            <form id="static-badges" class="row d-flex justify-content-center">
+                <div class="col-10">
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Label" type="text" id="static-label" name="label" placeholder="Label"/>
+                    </div>
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Message" type="text" id="static-message" name="message" placeholder="Message"/>
+                    </div>
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Color" type="text" id="static-color" name="color" placeholder="Color"/>
+                    </div>
+                </div>
+                <div class="col d-flex justify-content-center">
+                    <div class="input-group mb-3 justify-content-center">
+                        <button class="btn btn-primary" aria-label="Color" type="submit" id="static-submit" name="Submit">Make Badge</button>
+                    </div>
+                </div>
+
+                <div id="static-result" class="input-group mb-3 d-flex justify-content-center"></div>
+            </form>
+        </section>
+
+        <section id="section-dynamicbadges" class="row">
+            <h2>Dynamic Badges</h2>
+            <p>Specify a target URL. Response content will be available under the variable <code>r</code> for templating.</p>
+            <p>Hit enter to refresh your badge. Currently only JSON endpoints are supported.</p>
+            <form id="dynamic-badges" class="row d-flex justify-content-center">
+                <div class="col-10">
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Label" type="text" id="dynamic-target" name="target" placeholder="Target URL"/>
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Label" type="text" id="dynamic-label" name="label" placeholder="Label"/>
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Message" type="text" id="dynamic-message" name="message" placeholder="Message"/>
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <input class="form-control" aria-label="Color" type="text" id="dynamic-color" name="color" placeholder="Color"/>
+                    </div>
+                </div>
+                <div class="col d-flex justify-content-center">
+                    <div class="input-group mb-3 justify-content-center">
+                        <button class="btn btn-primary" aria-label="Color" type="submit" id="dynamic-submit" name="Submit">Make Badge</button>
+                    </div>
+                </div>
+
+                <div id="dynamic-result" class="input-group mb-3 d-flex justify-content-center"></div>
+            </form>
+        </section>
+
+        <div class="row">
+            <h2>Predefined Badges</h2>
+            <div class="col-md-12">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Parameters</th>
+                            <th scope="col">Example</th>
+                            <th scope="col">Path Format</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for predefined in PredefinedBadges %}
+                            <tr id="predefined-{{predefined.Name}}">
+                                <td>{{predefined.Name}}</td>
+                                <td>
+                                    <ul>
+                                    {% for k, v in predefined.Parameters %}
+                                        <li><code>{{k}}</code> {{v}}</li>
+                                    {% endfor %}
+                                    </ul>
+                                </td>
+                                <td>
+                                    {% if predefined.Example|length > 0 %}
+                                        <img src="/api/{{ApiVersionPrefix}}/badge/{{predefined.ExampleURL}}" alt="{{predefined.Name}}"/>
+                                    {% else %}
+
+                                    {% endif %}
+                                </td>
+                                <td><code>/api/{{ApiVersionPrefix}}/badge/{{predefined.Name}}/</code></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

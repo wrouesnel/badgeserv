@@ -28,9 +28,9 @@ Generate simple badges directly from a URL.
 
 ### Custom Badges
 
-`GET /api/v1/dynamic/?target=https://my-json-service/this/should/be/encoded/properly&name=This can be Pongo2&value=So can this {{like.with.a.value}}`
+`GET /api/v1/dynamic/?target=https://my-json-service/this/should/be/encoded/properly&label=This can be Pongo2&message=So can this {{like.with.a.value}}`
 
-Generate dynamic badges from any JSON or XML endpoint using [pongo2](https://github.com/flosch/pongo2) for data
+Generate dynamic badges from any JSON endpoint using [pongo2](https://github.com/flosch/pongo2) for data
 extraction.
 
 Pongo2 is a Jinja2-like syntax derivative for Go, and is chosen because it provides advanced features like conditions

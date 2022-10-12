@@ -3,16 +3,23 @@ package server
 import (
 	"fmt"
 	"github.com/brpaz/echozap"
+	"github.com/flosch/pongo2/v6"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/wrouesnel/badgeserv/api/v1"
+	"github.com/wrouesnel/badgeserv/assets"
 	"github.com/wrouesnel/badgeserv/pkg/badges"
+	"github.com/wrouesnel/badgeserv/pkg/pongorenderer"
+	"github.com/wrouesnel/badgeserv/pkg/server/badgeconfig"
 	"github.com/wrouesnel/badgeserv/version"
 	"go.uber.org/zap"
 	"go.withmatt.com/httpheaders"
 	"io"
+	"io/fs"
+	"net/url"
 	"time"
 )
 
@@ -36,8 +43,22 @@ var (
 )
 
 // Api launches an ApiV1 instance server and manages it's lifecycle.
-func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig) error {
+func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig, assetConfig assets.AssetsConfig, badgeConfigDir string) error {
 	logger := zap.L()
+
+	var predefinedBadgeConfig *badgeconfig.Config
+	if badgeConfigDir != "" {
+		logger.Info("Loading predefined badge configs")
+		var err error
+		predefinedBadgeConfig, err = badgeconfig.LoadDir(badgeConfigDir)
+		if err != nil {
+			logger.Error("Fatal error loading predefined badge configuration")
+			return errors.Wrap(err, "badgeconfig")
+		}
+	} else {
+		logger.Info("No predefined badge configs")
+		predefinedBadgeConfig = &badgeconfig.Config{PredefinedBadges: map[string]badgeconfig.BadgeDefinition{}}
+	}
 
 	logger.Debug("Configuring API REST client")
 	httpClient := resty.New()
@@ -48,10 +69,13 @@ func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig) error {
 	}
 	httpClient.SetTimeout(serverConfig.HttpClient.Timeout)
 
+	badgeService := badges.NewBadgeService(&badgeConfig)
+
 	logger.Debug("Creating API config")
 	apiConfig := &api.ApiConfig{
-		badges.NewBadgeService(&badgeConfig),
+		badgeService,
 		httpClient,
+		predefinedBadgeConfig,
 	}
 	apiInstance, apiPrefix := api.NewApi(apiConfig)
 
@@ -61,8 +85,35 @@ func Api(serverConfig ApiServerConfig, badgeConfig badges.BadgeConfig) error {
 		return ErrApiInitializationFailed
 	}
 
+	templateGlobals := make(pongo2.Context)
+	templateGlobals["ApiVersionPrefix"] = apiPrefix
+	templateGlobals["Version"] = map[string]string{
+		"Version":     version.Version,
+		"Name":        version.Name,
+		"Description": version.Description,
+	}
+	templateGlobals["Colors"] = badgeService.Colors
+	templateGlobals["PredefinedBadges"] = lo.MapToSlice(predefinedBadgeConfig.PredefinedBadges, func(k string, v badgeconfig.BadgeDefinition) interface{} {
+		exampleUrl := url.URL{Path: fmt.Sprintf("predefined/%s/", k)}
+		qry := exampleUrl.Query()
+		for k, v := range v.Example {
+			qry.Set(k, v)
+		}
+		exampleUrl.RawQuery = qry.Encode()
+
+		return struct {
+			Name       string
+			ExampleURL string
+			badgeconfig.BadgeDefinition
+		}{
+			Name:            k,
+			ExampleURL:      exampleUrl.String(),
+			BadgeDefinition: v,
+		}
+	})
+
 	logger.Info("Starting API server")
-	if err := Server(serverConfig, ApiConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {
+	if err := Server(serverConfig, assetConfig, templateGlobals, ApiConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {
 		logger.Error("Error from server", zap.Error(err))
 		return errors.Wrap(err, "Server exiting with error")
 	}
@@ -95,12 +146,19 @@ func ApiConfigure[T api.ServerInterface](serverConfig ApiServerConfig, apiInstan
 }
 
 // Server configures and starts an Echo server with standard capabilities, and configuration functions.
-func Server(serverConfig ApiServerConfig, ConfigFns ...func(e *echo.Echo) error) error {
+func Server(serverConfig ApiServerConfig, assetConfig assets.AssetsConfig, templateGlobals pongo2.Context, ConfigFns ...func(e *echo.Echo) error) error {
 	logger := zap.L().With(zap.String("subsystem", "server"))
 
 	e := echo.New()
 	e.HideBanner = true
 	e.Logger.SetOutput(io.Discard)
+
+	// Configure main renderer to use pongo2
+	webAssets := lo.Must(fs.Sub(assets.Assets(), "web"))
+	webTemplateSet := pongo2.NewSet("web", pongo2.NewFSLoader(webAssets))
+	webTemplateSet.Debug = assetConfig.DebugTemplates
+	webTemplateSet.Globals = templateGlobals
+	e.Renderer = pongorenderer.NewRenderer(webTemplateSet)
 
 	// Setup Prometheus monitoring
 	p := prometheus.NewPrometheus(version.Name, nil)
@@ -113,6 +171,18 @@ func Server(serverConfig ApiServerConfig, ConfigFns ...func(e *echo.Echo) error)
 	e.GET("/-/ready", Ready)
 	e.GET("/-/live", Live)
 	e.GET("/-/started", Started)
+
+	// Add static hosting endpoints
+	e.GET("/", Index)
+
+	e.GET("/css/*", StaticGet(webAssets, "text/css"))
+	e.HEAD("/css/*", StaticHead(webAssets, "text/css"))
+
+	e.GET("/js/*", StaticGet(webAssets, "application/javascript"))
+	e.HEAD("/js/*", StaticHead(webAssets, "application/javascript"))
+
+	//	e.GET("/css/*", Static(webAssets, "text/css"))
+	//e.GET("/js/*", Static(webAssets, "application/javascript"))
 
 	for _, configFn := range ConfigFns {
 		if err := configFn(e); err != nil {

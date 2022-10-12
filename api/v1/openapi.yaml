@@ -24,6 +24,34 @@ components:
           format: date-time
         version:
           type: string
+    ParameterDesc:
+      type: object
+      description: Parameter description
+      properties:
+        name:
+          type: string
+          description: Name of the parameter
+        description:
+          type: string
+          description: Description of the parameter
+    PredefinedBadgeDesc:
+      description: Definition of a predefined badge
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the badge
+        description:
+          type: string
+          description: Description of what the badge does
+        parameters:
+          type: array
+          items:
+          - type: object
+            properties:
+              schema:
+                $ref: "#/components/schemas/ParameterDesc"
+
     ClientError:
       description: error object for client errors
       type: object
@@ -141,13 +169,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/ClientError"
 
-  # /badge/endpoint:
-  #   get:
-  #     tags:
-  #     - generate
-  #     description: |
-  #       Endpoint badges implement a compatible interface similar to [shields.io](https://shields.io) and 
-  #       [badgen.net](https://badgen.net).
+#   /badge/endpoint:
+#     get:
+#       tags:
+#       - generate
+#       description: |
+#         Endpoint badges implement a compatible interface similar to [shields.io](https://shields.io) and
+#         [badgen.net](https://badgen.net).
+#       parameters:
+#       - in: query
+#         name: target
+#         required: true
+#         schema:
+#           type: string
+#       responses:
+#         "200":
+#           description: Returns the badge
+#           content:
+#             image/svg+xml:
+#         "400":
+#           description: Client Error
+#           content:
+#             application/json:
+#               schema:
+#                 $ref: "#/components/schemas/ClientError"
 
   /badge/predefined:
     get:
@@ -159,9 +204,11 @@ paths:
         including secrets to access services.
       responses:
         "200":
-          description: Returns the badge
+          description: Return the list of predefined badges
           content:
-            image/svg+xml:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParameterDesc"
         "400":
           description: Client Error
           content:
@@ -170,7 +217,7 @@ paths:
                 $ref: "#/components/schemas/ClientError"
       
 
-  /badge/predefined/{predefined_name}/:
+  /badge/predefined/{predefined_name}:
     get:
       tags:
       - generate

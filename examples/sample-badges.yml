@@ -1,0 +1,49 @@
+predefined_badges:
+  badge_name:
+    # Description to explain the badge
+    description: This is a sample badge name
+    # List of query parameters which should be accepted for this badge
+    parameters:
+      # Name and description of the parameter usage
+      parameter: The product which should be displayed
+    example:
+      parameter: "2"
+    # Target is the the endpoint and can be templated
+    target: https://dummyjson.com/products/{{ parameter }}
+    # This is just a regular dynamic badge template
+    label: "{{ r.brand }}"
+    message: "{{ r.title }}"
+    color: red
+
+  multiparameter-badge:
+    # Description to explain the badge
+    description: This badge has multiple parameters
+    # List of query parameters which should be accepted for this badge
+    parameters:
+      # Name and description of the parameter usage
+      parameter: The product which should be displayed
+      endpoint: The endpoint selection for the product
+    example:
+      parameter: "1"
+      endpoint: "products"
+    # Target is the the endpoint and can be templated
+    target: https://dummyjson.com/{{ endpoint }}/{{ parameter }}
+    # This is just a regular dynamic badge template
+    label: "{{ r.brand }}"
+    message: "{{ r.title }}"
+    color: blue
+
+  noexample-badge:
+    # Description to explain the badge
+    description: This badge has multiple parameters
+    # List of query parameters which should be accepted for this badge
+    parameters:
+      # Name and description of the parameter usage
+      parameter: The product which should be displayed
+      endpoint: The endpoint selection for the product
+    # Target is the the endpoint and can be templated
+    target: https://dummyjson.com/products/{{ parameter }}
+    # This is just a regular dynamic badge template
+    label: "{{ r.brand }}"
+    message: "{{ r.title }}"
+    color: yellow

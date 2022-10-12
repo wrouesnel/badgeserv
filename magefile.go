@@ -182,9 +182,8 @@ var version = func() string {
 		out, _ = sh.Output("git", "describe", "--dirty", "--always")
 		if out != "" {
 			return fmt.Sprintf("v0.0.0-0-%s", out)
-		} else {
-			return "v0.0.0"
 		}
+		return "v0.0.0"
 	}
 
 	return out
