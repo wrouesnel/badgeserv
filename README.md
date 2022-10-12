@@ -16,6 +16,19 @@ deployments which could benefit from a badge-generator service.
 
 ## Usage
 
+This is an entirely stateless service. Run it with:
+
+```shell
+docker run -it --rm -p 8080:8080 ghcr.io/wrouesnel/badgeserv
+```
+
+And visit http://127.0.0.1:8080 to use it.
+
+### Web UI
+
+The Web UI is the easiest way to make badges - simply enter your parameters, and the badge sample will be generated
+in your browser. Copying the image link will allow you to embed it on any other page.
+
 ### Swagger UI
 
 All features can be explored from the swagger UI at `/api/v1/ui`
@@ -36,14 +49,6 @@ extraction.
 Pongo2 is a Jinja2-like syntax derivative for Go, and is chosen because it provides advanced features like conditions
 and text handling. Using this language in badge queries, almost any type of data can be handled.
 
-## Coming Soon
-
-The following features will be implemented soon
-
-### Endpoint Badges
-
-Endpoint badges implement a compatible interface similar to [shields.io](https://shields.io) and [badgen.net](https://badgen.net).
-
 ### Predefined Badges
 
 `GET /api/v1/badge/<predefined name>/?param1=something&param2=something`
@@ -52,9 +57,13 @@ The predefined badge endpoints can be customized and configured when the service
 for surfacing data which requires authentication tokens to retrieve. BadgeServ supports retrieving secrets from
 Hashicorp Vault directly, for maximum configuration security.
 
-### Web UI
+## Coming Soon
 
-A web UI beyond the default landing page.
+The following features will be implemented soon
+
+### Endpoint Badges
+
+Endpoint badges implement a compatible interface similar to [shields.io](https://shields.io) and [badgen.net](https://badgen.net).
 
 ## Acknowledgements
 
