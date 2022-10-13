@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/fs"
 	"net/url"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/brpaz/echozap"
@@ -61,8 +63,40 @@ func loadBadgeConfig(badgeConfigDir string) (*badgeconfig.Config, error) {
 	return predefinedBadgeConfig, nil
 }
 
+func getPredefinedBadgesTemplateData(predefinedBadgeConfig *badgeconfig.Config) interface{} {
+	type templatePredefinedBadge struct {
+		Name       string
+		ExampleURL string
+		badgeconfig.BadgeDefinition
+	}
+
+	if predefinedBadgeConfig == nil {
+		return []templatePredefinedBadge{}
+	}
+
+	predefinedBadges := lo.MapToSlice(predefinedBadgeConfig.PredefinedBadges, func(k string, v badgeconfig.BadgeDefinition) templatePredefinedBadge {
+		exampleURL := url.URL{Path: fmt.Sprintf("predefined/%s/", k)}
+		qry := exampleURL.Query()
+		for k, v := range v.Example {
+			qry.Set(k, v)
+		}
+		exampleURL.RawQuery = qry.Encode()
+
+		return templatePredefinedBadge{
+			Name:            k,
+			ExampleURL:      exampleURL.String(),
+			BadgeDefinition: v,
+		}
+	})
+
+	sort.Slice(predefinedBadges, func(i, j int) bool {
+		return strings.Compare(predefinedBadges[i].Name, predefinedBadges[j].Name) < 0
+	})
+
+	return predefinedBadges
+}
+
 // API launches an ApiV1 instance server and manages it's lifecycle.
-//nolint:funlen
 func API(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConfig assets.Config, badgeConfigDir string) error {
 	logger := zap.L()
 
@@ -79,6 +113,7 @@ func API(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConf
 		httpClient.SetHeader(httpheaders.UserAgent, serverConfig.HTTPClient.UserAgent)
 	}
 	httpClient.SetTimeout(serverConfig.HTTPClient.Timeout)
+	logger.Info("HTTP client initialized", zap.Bool("proxy_set", httpClient.IsProxySet()))
 
 	badgeService := badges.NewBadgeService(&badgeConfig)
 
@@ -104,24 +139,7 @@ func API(serverConfig APIServerConfig, badgeConfig badges.BadgeConfig, assetConf
 		"Description": version.Description,
 	}
 	templateGlobals["Colors"] = badgeService.Colors
-	templateGlobals["PredefinedBadges"] = lo.MapToSlice(predefinedBadgeConfig.PredefinedBadges, func(k string, v badgeconfig.BadgeDefinition) interface{} {
-		exampleURL := url.URL{Path: fmt.Sprintf("predefined/%s/", k)}
-		qry := exampleURL.Query()
-		for k, v := range v.Example {
-			qry.Set(k, v)
-		}
-		exampleURL.RawQuery = qry.Encode()
-
-		return struct {
-			Name       string
-			ExampleURL string
-			badgeconfig.BadgeDefinition
-		}{
-			Name:            k,
-			ExampleURL:      exampleURL.String(),
-			BadgeDefinition: v,
-		}
-	})
+	templateGlobals["PredefinedBadges"] = getPredefinedBadgesTemplateData(predefinedBadgeConfig)
 
 	logger.Info("Starting API server")
 	if err := Server(serverConfig, assetConfig, templateGlobals, APIConfigure(serverConfig, apiInstance, apiPrefix)); err != nil {

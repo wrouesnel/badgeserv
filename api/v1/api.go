@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/flosch/pongo2/v6"
 	"github.com/go-resty/resty/v2"
 	"github.com/labstack/echo/v4"
@@ -33,6 +35,7 @@ type apiImpl struct {
 	minify           *minify.M
 	httpClient       *resty.Client
 	predefinedBadges *badgeconfig.Config
+	logger           *zap.Logger
 }
 
 const DynamicBadgeResponseName = "r"
@@ -41,41 +44,14 @@ func (a *apiImpl) generateETag(in []byte) string {
 	return fmt.Sprintf("sha256:%x", sha256.Sum256(in))
 }
 
-//nolint:funlen
 func (a *apiImpl) GetBadgeDynamic(ctx echo.Context, params GetBadgeDynamicParams) error {
 	target := params.Target
-	labelTemplateString := lo.FromPtr(params.Label)
-	messageTemplateString := lo.FromPtr(params.Message)
-	colorTemplateString := lo.FromPtr(params.Color)
 
-	// Pass the incoming template
-	labelTmpl, err := pongo2.FromBytes([]byte(labelTemplateString))
-	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, &ClientError{
-			Description: "Label template is invalid",
-			Error:       err.Error(),
-		})
-	}
-
-	messageTmpl, err := pongo2.FromBytes([]byte(messageTemplateString))
-	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, &ClientError{
-			Description: "Message template is invalid",
-			Error:       err.Error(),
-		})
-	}
-
-	colorTmpl, err := pongo2.FromBytes([]byte(colorTemplateString))
-	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, &ClientError{
-			Description: "Color template is invalid",
-			Error:       err.Error(),
-		})
-	}
-
+	a.logger.Debug("Making outbound request", zap.String("target", target))
 	resp, err := a.httpClient.NewRequest().Get(target)
 	if err != nil {
-		return ctx.JSON(http.StatusInternalServerError, &ClientError{
+		a.logger.Debug("Outbound HTTP request failed", zap.Error(err))
+		return ctx.JSON(http.StatusBadGateway, &ClientError{
 			Description: "Target HTTP request failed",
 			Error:       err.Error(),
 		})
@@ -89,44 +65,14 @@ func (a *apiImpl) GetBadgeDynamic(ctx echo.Context, params GetBadgeDynamicParams
 		})
 	}
 
-	// Template the badge parameters
-	pongo2.SetAutoescape(false) // TODO: don't set globals like this
 	templateCtx := map[string]interface{}{}
 	templateCtx[DynamicBadgeResponseName] = responseData
 
-	label, err := labelTmpl.Execute(templateCtx)
-	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, &ClientError{
-			Description: "Label template execution failed",
-			Error:       err.Error(),
-		})
-	}
-
-	message, err := messageTmpl.Execute(templateCtx)
-	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, &ClientError{
-			Description: "Message template execution failed",
-			Error:       err.Error(),
-		})
-	}
-
-	color, err := colorTmpl.Execute(templateCtx)
-	if err != nil {
-		return ctx.JSON(http.StatusBadRequest, &ClientError{
-			Description: "Color template execution failed",
-			Error:       err.Error(),
-		})
-	}
-
-	badge, err := a.badgeService.CreateBadge(badges.BadgeDesc{Title: label, Text: message, Color: color})
-	if err != nil {
-		return ctx.JSON(http.StatusInternalServerError, &ClientError{
-			Description: "Badge generation failed",
-			Error:       err.Error(),
-		})
-	}
-
-	return a.svgResponse(ctx, badge)
+	return a.getBadge(ctx, GetBadgeStaticParams{
+		Label:   params.Label,
+		Message: params.Message,
+		Color:   params.Color,
+	}, templateCtx)
 }
 
 func (a *apiImpl) GetBadgePredefined(ctx echo.Context) error {
@@ -185,10 +131,66 @@ func (a *apiImpl) GetBadgePredefinedPredefinedName(ctx echo.Context, predefinedN
 }
 
 func (a *apiImpl) GetBadgeStatic(ctx echo.Context, params GetBadgeStaticParams) error {
-	label := lo.FromPtr[string](params.Label)
-	message := lo.FromPtr[string](params.Message)
-	color := lo.FromPtr[string](params.Color)
+	return a.getBadge(ctx, params, nil)
+}
 
+func (a *apiImpl) parseTemplate(ctx echo.Context, paramName string, templateString string) (*pongo2.Template, error) {
+	tmpl, err := pongo2.FromBytes([]byte(templateString))
+	if err != nil {
+		return nil, ctx.JSON(http.StatusBadRequest, &ClientError{
+			Description: fmt.Sprintf("%s template is invalid", paramName),
+			Error:       err.Error(),
+		})
+	}
+	return tmpl, nil
+}
+
+func (a *apiImpl) executeTemplate(ctx echo.Context, paramName string, template *pongo2.Template, templateCtx pongo2.Context) (string, error) {
+	// Execute the templates
+	result, err := template.Execute(templateCtx)
+	if err != nil {
+		return "", ctx.JSON(http.StatusBadRequest, &ClientError{
+			Description: fmt.Sprintf("%s template execution failed", paramName),
+			Error:       err.Error(),
+		})
+	}
+	return result, nil
+}
+
+func (a *apiImpl) getBadge(ctx echo.Context, params GetBadgeStaticParams, templateCtx pongo2.Context) error {
+	if templateCtx == nil {
+		templateCtx = map[string]interface{}{}
+	}
+
+	// Parse the incoming templates
+	labelTmpl, err := a.parseTemplate(ctx, "Label", lo.FromPtr(params.Label))
+	if err != nil {
+		return err
+	}
+	messageTmpl, err := a.parseTemplate(ctx, "Message", lo.FromPtr(params.Message))
+	if err != nil {
+		return err
+	}
+	colorTmpl, err := a.parseTemplate(ctx, "Color", lo.FromPtr(params.Color))
+	if err != nil {
+		return err
+	}
+
+	// Execute the templates
+	label, err := a.executeTemplate(ctx, "Label", labelTmpl, templateCtx)
+	if err != nil {
+		return err
+	}
+	message, err := a.executeTemplate(ctx, "Message", messageTmpl, templateCtx)
+	if err != nil {
+		return err
+	}
+	color, err := a.executeTemplate(ctx, "Color", colorTmpl, templateCtx)
+	if err != nil {
+		return err
+	}
+
+	// Create the badge
 	badge, err := a.badgeService.CreateBadge(badges.BadgeDesc{Title: label, Text: message, Color: color})
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, &ClientError{
@@ -197,6 +199,7 @@ func (a *apiImpl) GetBadgeStatic(ctx echo.Context, params GetBadgeStaticParams) 
 		})
 	}
 
+	// Do the SVG response
 	return a.svgResponse(ctx, badge)
 }
 
@@ -230,13 +233,16 @@ func NewAPI(apiConfig *Config) (ServerInterface, string) {
 	minifier := minify.New()
 	minifier.AddFunc("image/svg+xml", svg.Minify)
 
+	const apiVersion = "v1"
+
 	return &apiImpl{
 		version.Version,
 		apiConfig.BadgeService,
 		minifier,
 		apiConfig.HTTPClient,
 		apiConfig.PredefinedBadges,
-	}, "v1"
+		zap.L().With(zap.String("app_version", version.Version), zap.String("api_version", apiVersion)),
+	}, apiVersion
 }
 
 // GetOpenapiYaml implements returning the openapi.yaml file.
