@@ -29,6 +29,10 @@
         h1 {
             margin-bottom: 20px;
         }
+
+        .table-fit {
+            width: 1px;
+        }
     </style>
 </head>
 <body>
@@ -120,8 +124,7 @@
                         <tr>
                             <th scope="col">Name</th>
                             <th scope="col">Parameters</th>
-                            <th scope="col">Example</th>
-                            <th scope="col">Path Format</th>
+                            <th scope="col">Examples</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -129,20 +132,27 @@
                             <tr id="predefined-{{predefined.Name}}">
                                 <td>{{predefined.Name}}</td>
                                 <td>
-                                    <ul>
-                                    {% for k, v in predefined.Parameters %}
-                                        <li><code>{{k}}</code> {{v}}</li>
-                                    {% endfor %}
-                                    </ul>
+                                    <table class="table">
+                                        {% for v in predefined.Parameters %}
+                                        <tr>
+                                            <td class="table-fit"><code>{{v.Name}}</code></td>
+                                            <td>{{v.Description}}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </table>
                                 </td>
                                 <td>
-                                    {% if predefined.Example|length > 0 %}
-                                        <img src="/api/{{ApiVersionPrefix}}/badge/{{predefined.ExampleURL}}" alt="{{predefined.Name}}"/>
-                                    {% else %}
-
-                                    {% endif %}
+                                    <table class="table table-borderless">
+                                        <tbody>
+                                            {% for example in predefined.Examples %}
+                                            <tr>
+                                                <td class="table-fit"><img src="/api/{{ApiVersionPrefix}}/{{example.URL}}" alt="{{example.Description}}"/></td>
+                                                <td>{{example.Description}}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
                                 </td>
-                                <td><code>/api/{{ApiVersionPrefix}}/badge/{{predefined.Name}}/</code></td>
                             </tr>
                         {% endfor %}
                     </tbody>

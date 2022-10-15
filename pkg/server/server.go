@@ -64,30 +64,60 @@ func loadBadgeConfig(badgeConfigDir string) (*badgeconfig.Config, error) {
 }
 
 func getPredefinedBadgesTemplateData(predefinedBadgeConfig *badgeconfig.Config) interface{} {
+	type templatePredefinedExample struct {
+		Description string
+		URL         string
+	}
+
+	type templateParameter struct {
+		Name        string
+		Description string
+	}
+
 	type templatePredefinedBadge struct {
 		Name       string
-		ExampleURL string
-		badgeconfig.BadgeDefinition
+		Examples   []templatePredefinedExample
+		Parameters []templateParameter
 	}
 
 	if predefinedBadgeConfig == nil {
 		return []templatePredefinedBadge{}
 	}
 
-	predefinedBadges := lo.MapToSlice(predefinedBadgeConfig.PredefinedBadges, func(k string, v badgeconfig.BadgeDefinition) templatePredefinedBadge {
-		exampleURL := url.URL{Path: fmt.Sprintf("predefined/%s/", k)}
-		qry := exampleURL.Query()
-		for k, v := range v.Example {
-			qry.Set(k, v)
-		}
-		exampleURL.RawQuery = qry.Encode()
+	predefinedBadges := []templatePredefinedBadge{}
+	for predefinedName, predefinedDesc := range predefinedBadgeConfig.PredefinedBadges {
+		exampleDefs := []templatePredefinedExample{}
+		for _, example := range predefinedDesc.Examples {
+			exampleURL := url.URL{Path: fmt.Sprintf("badge/predefined/%s/", predefinedName)}
+			qry := exampleURL.Query()
+			for k, v := range example.Parameters {
+				qry.Set(k, v)
+			}
+			exampleURL.RawQuery = qry.Encode()
 
-		return templatePredefinedBadge{
-			Name:            k,
-			ExampleURL:      exampleURL.String(),
-			BadgeDefinition: v,
+			exampleDefs = append(exampleDefs, templatePredefinedExample{
+				Description: example.Description,
+				URL:         exampleURL.String(),
+			})
 		}
-	})
+
+		parameterList := lo.MapToSlice(predefinedDesc.Parameters, func(k string, v string) templateParameter {
+			return templateParameter{
+				Name:        k,
+				Description: v,
+			}
+		})
+
+		sort.Slice(parameterList, func(i, j int) bool {
+			return strings.Compare(parameterList[i].Name, parameterList[j].Name) < 0
+		})
+
+		predefinedBadges = append(predefinedBadges, templatePredefinedBadge{
+			Name:       predefinedName,
+			Examples:   exampleDefs,
+			Parameters: parameterList,
+		})
+	}
 
 	sort.Slice(predefinedBadges, func(i, j int) bool {
 		return strings.Compare(predefinedBadges[i].Name, predefinedBadges[j].Name) < 0

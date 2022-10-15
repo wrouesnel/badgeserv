@@ -22,11 +22,18 @@ type BadgeDesc struct {
 	Color   string `mapstructure:"color" help:"Color template"`
 }
 
+// BadgeExample defines an example of a predefined badge. It can be used to
+// present common badges on the main UI. Multiple examples can be defined.
+type BadgeExample struct {
+	Description string `mapstructure:"description" help:"description of the badge example"`
+	Parameters  map[string]string
+}
+
 type BadgeDefinition struct {
 	BadgeDesc   `mapstructure:",squash"`
 	Target      string            `mapstructure:"target" help:"target URL to resolve badge data from"`
 	Parameters  map[string]string `mapstructure:"parameters" help:"Accepted parameters for the interface"`
-	Example     map[string]string `mapstructure:"example" help:"Prefilled parameters to display an example badge"`
+	Examples    []BadgeExample    `mapstructure:"examples" help:"List of example badges to include"`
 	Description string            `mapstructure:"description"`
 }
 

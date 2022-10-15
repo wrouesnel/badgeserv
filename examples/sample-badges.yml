@@ -6,8 +6,10 @@ predefined_badges:
     parameters:
       # Name and description of the parameter usage
       parameter: The product which should be displayed
-    example:
-      parameter: "2"
+    examples:
+      - description: Single example badge
+        parameters:
+          parameter: "2"
     # Target is the the endpoint and can be templated
     target: https://dummyjson.com/products/{{ parameter }}
     # This is just a regular dynamic badge template
@@ -23,9 +25,15 @@ predefined_badges:
       # Name and description of the parameter usage
       parameter: The product which should be displayed
       endpoint: The endpoint selection for the product
-    example:
-      parameter: "1"
-      endpoint: "products"
+    examples:
+      - description: Example 1
+        parameters:
+          parameter: "1"
+          endpoint: "products"
+      - description: Example 2
+        parameters:
+          parameter: "2"
+          endpoint: "products"
     # Target is the the endpoint and can be templated
     target: https://dummyjson.com/{{ endpoint }}/{{ parameter }}
     # This is just a regular dynamic badge template
