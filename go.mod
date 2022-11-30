@@ -5,7 +5,7 @@ require (
 	github.com/brpaz/echozap v1.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/flosch/pongo2/v6 v6.0.0
-	github.com/getkin/kin-openapi v0.104.0
+	github.com/getkin/kin-openapi v0.110.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/integralist/go-findroot v0.0.0-20160518114804-ac90681525dc
