@@ -18,7 +18,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.9.0
-	github.com/samber/lo v1.32.0
+	github.com/samber/lo v1.37.0
 	github.com/tdewolff/minify v2.3.6+incompatible
 	go.uber.org/zap v1.23.0
 	go.withmatt.com/httpheaders v0.0.0-20220809015020-3dbe1127da7b
