@@ -5,7 +5,7 @@ require (
 	github.com/brpaz/echozap v1.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/flosch/pongo2/v6 v6.0.0
-	github.com/getkin/kin-openapi v0.104.0
+	github.com/getkin/kin-openapi v0.114.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/integralist/go-findroot v0.0.0-20160518114804-ac90681525dc
@@ -33,6 +33,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
+	github.com/perimeterx/marshmallow v1.1.4 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/tdewolff/parse v2.3.4+incompatible // indirect
 	github.com/tdewolff/test v1.0.7 // indirect
